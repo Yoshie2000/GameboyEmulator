@@ -40,6 +40,8 @@ pub enum Register {
     L,
 
     // u8
+    W,
+    // u8
     Z,
     // u16
     PC,
@@ -52,11 +54,14 @@ pub enum Register {
     DE,
     // u16
     HL,
+    // u16
+    WZ,
 }
 
-const REGISTER_COUNT: usize = 16;
+const REGISTER_COUNT: usize = 18;
 const DATA_REGISTER_COUNT: usize = 6;
-const REGISTER_FILE_BYTES: usize = 15;
+const REGISTER_PAIR_COUNT: usize = 4;
+const REGISTER_FILE_BYTES: usize = 16;
 
 const DATA_REGISTERS: [Register; DATA_REGISTER_COUNT] = [
     Register::B,
@@ -67,10 +72,11 @@ const DATA_REGISTERS: [Register; DATA_REGISTER_COUNT] = [
     Register::L,
 ];
 
-const REGISTER_PAIRS: [(Register, Register); 3] = [
+const REGISTER_PAIRS: [(Register, Register); REGISTER_PAIR_COUNT] = [
     (Register::B, Register::C),
     (Register::D, Register::E),
     (Register::H, Register::L),
+    (Register::W, Register::Z),
 ];
 
 impl Register {

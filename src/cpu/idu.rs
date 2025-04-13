@@ -19,6 +19,10 @@ impl IDU {
         IDU { address_bus }
     }
 
+    pub fn unsigned16(&self, msb: u8, lsb: u8) -> u16 {
+        ((msb as u16) << 8) | lsb as u16
+    }
+
     pub fn increment(&self) -> u16 {
         let address = self.address_bus.borrow().read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");

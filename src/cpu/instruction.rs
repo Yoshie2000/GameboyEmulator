@@ -47,6 +47,44 @@ pub enum Instruction {
     // Opcode 0b00010010, 1 byte, 2 cycles
     LDAM_DE(),
 
+    // LD A, (nn)
+    // Load to the 8-bit register A, data from the absolute address specified by the 16-bit operand nn
+    // Opcode 0b11111010, 3 bytes, 4 cycles
+    LDAD(),
+
+    // LD (nn), A
+    // Load to the absolute address specified by the 16-bit operand nn, data from the 8-bit register A
+    // Opcode 0b11101010, 3 bytes, 4 cycles
+    LDAMD(),
+
+    // LDH A, (C)
+    // Load to the 8-bit register A, data from the address specified by the 8-bit C register. The full
+    // 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the least
+    // significant byte to the value of C, so the possible range is 0xFF00-0xFFFF
+    // Opcode 0b11110010, 1 byte, 2 cycles
+    LDH(),
+
+    // LDH (C), A
+    // Load to the address specified by the 8-bit C register, data from the 8-bit register A. The full
+    // 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the least
+    // significant byte to the value of C, so the possible range is 0xFF00-0xFFFF
+    // Opcode 0b11100010, 1 byte, 2 cycles
+    LDHM(),
+
+    // LDH A, (n)
+    // Load to the 8-bit register A, data from the address specified by the 8-bit immediate data n. The
+    // full 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the
+    // least significant byte to the value of n, so the possible range is 0xFF00-0xFFFF
+    // Opcode 0b11110000, 2 bytes, 3 cycles
+    LDHD(),
+
+    // LDH (n), A
+    // Load to the address specified by the 8-bit immediate data n, data from the 8-bit register A. The
+    // full 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the
+    // least significant byte to the value of n, so the possible range is 0xFF00-0xFFFF
+    // Opcode 0b11100000, 2 bytes, 3 cycles
+    LDHDM(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
