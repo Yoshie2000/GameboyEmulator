@@ -17,13 +17,17 @@ pub struct CPU {
 
     current_instruction: Option<Instruction>,
     instruction_counter: u8,
+    skip_pc_increment: bool,
 }
 
 impl CPU {
     pub fn new() -> CPU {
         let data_bus = Rc::new(RefCell::new(Bus::<u8>::new()));
         let address_bus = Rc::new(RefCell::new(Bus::<u16>::new()));
-        let register_file = Rc::new(RefCell::new(RegisterFile::new(Rc::clone(&data_bus))));
+        let register_file = Rc::new(RefCell::new(RegisterFile::new(
+            Rc::clone(&data_bus),
+            Rc::clone(&address_bus),
+        )));
 
         CPU {
             control_unit: ControlUnit::new(),
@@ -34,6 +38,7 @@ impl CPU {
             idu: IDU::new(Rc::clone(&address_bus)),
             current_instruction: None,
             instruction_counter: 0,
+            skip_pc_increment: false,
         }
     }
 
@@ -65,14 +70,17 @@ impl CPU {
             self.register_file.borrow_mut().read_data_bus(Register::IR);
         }
 
-        // Always increment the PC via the IDU
-        self.address_bus
-            .borrow_mut()
-            .write(self.register_file.borrow().read_u16(Register::PC));
-        let next_pc = self.idu.increment();
-        self.register_file
-            .borrow_mut()
-            .write_u16(Register::PC, next_pc);
+        // Increment the PC via the IDU
+        if !self.skip_pc_increment {
+            self.address_bus
+                .borrow_mut()
+                .write(self.register_file.borrow().read_u16(Register::PC));
+            let next_pc = self.idu.increment();
+            self.register_file
+                .borrow_mut()
+                .write_u16(Register::PC, next_pc);
+        }
+        self.skip_pc_increment = false;
     }
 
     pub fn decode(&mut self) -> Instruction {
@@ -83,25 +91,40 @@ impl CPU {
 
         match instruction_header {
             0b01 => {
-                if instruction_body_1 < 8 && instruction_body_2 < 8 {
-                    Instruction::LD(
+                if instruction_body_1 < 6 && instruction_body_2 < 6 {
+                    Instruction::LDR(
                         Register::data_register(instruction_body_1),
                         Register::data_register(instruction_body_2),
                     )
+                } else if instruction_body_2 == 6 {
+                    Instruction::LD(Register::data_register(instruction_body_1))
+                } else if instruction_body_1 == 6 {
+                    Instruction::LDM(Register::data_register(instruction_body_2))
                 } else {
-                    Instruction::NOP()
+                    panic!("Unimplemented or invalid instruction {instruction}");
                 }
             }
             0b00 => {
-                if instruction_body_2 == 6 {
-                    assert!(instruction_body_1 < 8);
+                if instruction_body_1 == 0 && instruction_body_2 == 2 {
+                    Instruction::LDAM_BC()
+                } else if instruction_body_1 == 1 && instruction_body_2 == 2 {
+                    Instruction::LDA_BC()
+                } else if instruction_body_1 == 2 && instruction_body_2 == 2 {
+                    Instruction::LDAM_DE()
+                } else if instruction_body_1 == 3 && instruction_body_2 == 2 {
+                    Instruction::LDA_DE()
+                } else if instruction_body_1 == 6 && instruction_body_2 == 6 {
+                    Instruction::LDMI()
+                } else if instruction_body_2 == 6 {
                     Instruction::LDI(Register::data_register(instruction_body_1))
-                } else {
+                } else if instruction_body_1 == 0 && instruction_body_2 == 0 {
                     Instruction::NOP()
+                } else {
+                    panic!("Unimplemented or invalid instruction {instruction}");
                 }
             }
             _ => {
-                panic!("Unimplemented or invalid instruction");
+                panic!("Unimplemented or invalid instruction {instruction}");
             }
         }
     }
@@ -110,7 +133,7 @@ impl CPU {
         println!("Executing {current_instruction:?}");
 
         match current_instruction {
-            Instruction::LD(r, r_) => {
+            Instruction::LDR(r, r_) => {
                 self.alu.read_data_register(r);
                 self.alu.write_data_register(r_);
                 self.current_instruction = None;
@@ -127,7 +150,130 @@ impl CPU {
                     self.current_instruction = None;
                 }
                 _ => {
-                    panic!("Unimplemented instruction counter for instruction LDI");
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LD(r) => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.write_data_register(r);
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDM(r) => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.register_file.borrow().write_data_bus(r);
+                    // TODO send write signal to the memory
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    // The second clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDMI() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.register_file.borrow().write_data_bus(Register::Z);
+                    // TODO send write signal to the memory
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    // The second clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDA_BC() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::BC);
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.write_data_register(Register::A);
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDA_DE() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::DE);
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.write_data_register(Register::A);
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDAM_BC() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::BC);
+                    self.register_file.borrow().write_data_bus(Register::A);
+                    // TODO send write signal to the memory
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    // The second clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::LDAM_DE() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(Register::DE);
+                    self.register_file.borrow().write_data_bus(Register::A);
+                    // TODO send write signal to the memory
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    // The second clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
                 }
             },
 

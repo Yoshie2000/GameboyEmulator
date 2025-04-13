@@ -24,6 +24,9 @@ pub enum Register {
     // u8
     A,
     // u8
+    F,
+
+    // u8
     B,
     // u8
     C,
@@ -31,8 +34,6 @@ pub enum Register {
     D,
     // u8
     E,
-    // u8
-    F,
     // u8
     H,
     // u8
@@ -44,24 +45,37 @@ pub enum Register {
     PC,
     // u16
     SP,
+
+    // u16
+    BC,
+    // u16
+    DE,
+    // u16
+    HL,
 }
 
-const REGISTER_COUNT: usize = 13;
+const REGISTER_COUNT: usize = 16;
+const DATA_REGISTER_COUNT: usize = 6;
 const REGISTER_FILE_BYTES: usize = 15;
 
-const DATA_REGISTERS: [Register; 8] = [
-    Register::A,
+const DATA_REGISTERS: [Register; DATA_REGISTER_COUNT] = [
     Register::B,
     Register::C,
     Register::D,
     Register::E,
-    Register::F,
     Register::H,
     Register::L,
 ];
 
+const REGISTER_PAIRS: [(Register, Register); 3] = [
+    (Register::B, Register::C),
+    (Register::D, Register::E),
+    (Register::H, Register::L),
+];
+
 impl Register {
     pub fn data_register(index: u8) -> Register {
+        assert!((index as usize) < DATA_REGISTER_COUNT);
         DATA_REGISTERS[index as usize]
     }
 
@@ -73,6 +87,7 @@ impl Register {
 pub struct RegisterFile {
     data: [u8; REGISTER_FILE_BYTES],
     data_bus: Rc<RefCell<Bus<u8>>>,
+    address_bus: Rc<RefCell<Bus<u16>>>,
 }
 
 impl Display for RegisterFile {
@@ -91,10 +106,11 @@ impl Display for RegisterFile {
 }
 
 impl RegisterFile {
-    pub fn new(data_bus: Rc<RefCell<Bus<u8>>>) -> RegisterFile {
+    pub fn new(data_bus: Rc<RefCell<Bus<u8>>>, address_bus: Rc<RefCell<Bus<u16>>>) -> RegisterFile {
         RegisterFile {
             data: [0; REGISTER_FILE_BYTES],
             data_bus,
+            address_bus,
         }
     }
 
@@ -107,11 +123,17 @@ impl RegisterFile {
     pub fn read_u16(&self, register: Register) -> u16 {
         assert!(register.index() >= Register::PC.index());
 
-        let i = 2 * register.index() - Register::PC.index();
-        let high = self.data[i + 1] as u16;
-        let low = self.data[i] as u16;
+        if register.index() < Register::BC.index() {
+            let i = 2 * register.index() - Register::PC.index();
+            let high = self.data[i + 1] as u16;
+            let low = self.data[i] as u16;
 
-        (high << 8) | low
+            (high << 8) | low
+        } else {
+            let (high, low) = REGISTER_PAIRS[register.index() - Register::BC.index()];
+
+            ((self.read_u8(high) as u16) << 8) | self.read_u8(low) as u16
+        }
     }
 
     pub fn write_u8(&mut self, register: Register, value: u8) {
@@ -123,9 +145,15 @@ impl RegisterFile {
     pub fn write_u16(&mut self, register: Register, value: u16) {
         assert!(register.index() >= Register::PC.index());
 
-        let i = 2 * register.index() - Register::PC.index();
-        self.data[i + 1] = (value >> 8) as u8;
-        self.data[i] = value as u8;
+        if register.index() < Register::BC.index() {
+            let i = 2 * register.index() - Register::PC.index();
+            self.data[i + 1] = (value >> 8) as u8;
+            self.data[i] = value as u8;
+        } else {
+            let (high, low) = REGISTER_PAIRS[register.index() - Register::BC.index()];
+            self.write_u8(high, (value >> 8) as u8);
+            self.write_u8(low, value as u8);
+        }
     }
 
     pub fn read_data_bus(&mut self, register: Register) {
@@ -134,5 +162,15 @@ impl RegisterFile {
             0
         });
         self.write_u8(register, data);
+    }
+
+    pub fn write_data_bus(&self, register: Register) {
+        let data = self.read_u8(register);
+        self.data_bus.borrow_mut().write(data);
+    }
+
+    pub fn write_address_bus(&self, register: Register) {
+        let data = self.read_u16(register);
+        self.address_bus.borrow_mut().write(data);
     }
 }
