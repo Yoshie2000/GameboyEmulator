@@ -6,15 +6,24 @@ mod cpu;
 fn main() {
     let mut cpu = CPU::new();
 
-    // Test LDI
-    /*cpu.data_bus_mut().write(0b00101110);
+    // Test LD HL, SP+e
+    // LD HL, 0b0000000000110011
+    cpu.data_bus_mut().write(0b00100001);
     cpu.clock_cycle();
-    cpu.data_bus_mut().write(0b11111111);
+    cpu.data_bus_mut().write(0b00110101);
     cpu.clock_cycle();
     cpu.data_bus_mut().write(0b00000000);
-    cpu.clock_cycle();*/
+    cpu.clock_cycle();
+    cpu.data_bus_mut().write(0b00000000);
+    cpu.clock_cycle();
 
-    // Test LD HL, SP+e
+    // LD SP, HL
+    cpu.data_bus_mut().write(0b11111001);
+    cpu.clock_cycle();
+    cpu.data_bus_mut().write(0b00000000);
+    cpu.clock_cycle();
+
+    // LD HL, SP+e
     cpu.data_bus_mut().write(0b11111000);
     cpu.clock_cycle();
     cpu.data_bus_mut().write(0xCC);

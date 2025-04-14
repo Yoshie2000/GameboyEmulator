@@ -59,7 +59,7 @@ impl CPU {
         // Execute the current instruction
         match self.current_instruction {
             Some(current_instruction) => self.execute(current_instruction),
-            None => panic!("This shouldbe impossible to happen"),
+            None => panic!("This should be impossible to happen"),
         }
 
         // If the instruction is fully executed, prepare the next one
@@ -548,9 +548,8 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_u16(r, self.register_file.borrow_mut().read_u16(Register::WZ));
+                    let wz = self.register_file.borrow_mut().read_u16(Register::WZ);
+                    self.register_file.borrow_mut().write_u16(r, wz);
                     self.current_instruction = None;
                 }
                 _ => {
@@ -731,7 +730,7 @@ impl CPU {
                                 (1, 0, 1) => (0, 1),
                                 (1, 1, 0) => (0, 1),
                                 (1, 1, 1) => (1, 1),
-                                _ => (0, 0), // should never hit
+                                _ => panic!("This is impossible"),
                             };
 
                             if new_carry == 1 {
