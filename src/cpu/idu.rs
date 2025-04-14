@@ -7,35 +7,51 @@ https://gekkio.fi/files/gb-docs/gbctr.pdf
 */
 
 use crate::bus::Bus;
+use crate::cpu::register_file::{Register, RegisterFile};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct IDU {
     address_bus: Rc<RefCell<Bus<u16>>>,
+    register_file: Rc<RefCell<RegisterFile>>,
 }
 
 impl IDU {
-    pub fn new(address_bus: Rc<RefCell<Bus<u16>>>) -> IDU {
-        IDU { address_bus }
+    pub fn new(
+        address_bus: Rc<RefCell<Bus<u16>>>,
+        register_file: Rc<RefCell<RegisterFile>>,
+    ) -> IDU {
+        IDU {
+            address_bus,
+            register_file,
+        }
     }
 
-    pub fn unsigned16(&self, msb: u8, lsb: u8) -> u16 {
-        ((msb as u16) << 8) | lsb as u16
-    }
-
-    pub fn increment(&self) -> u16 {
+    pub fn write_into(&self, register: Register) {
         let address = self.address_bus.borrow().read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         });
-        address + 1
+        self.register_file.borrow_mut().write_u16(register, address)
     }
 
-    pub fn decrement(&self) -> u16 {
+    pub fn increment_into(&self, register: Register) {
         let address = self.address_bus.borrow().read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         });
-        address - 1
+        self.register_file
+            .borrow_mut()
+            .write_u16(register, address + 1)
+    }
+
+    pub fn decrement_into(&self, register: Register) {
+        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+            println!("WARNING: The address bus should not be empty at this point!");
+            0
+        });
+        self.register_file
+            .borrow_mut()
+            .write_u16(register, address - 1)
     }
 }

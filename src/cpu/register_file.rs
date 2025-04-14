@@ -8,6 +8,7 @@ https://gekkio.fi/files/gb-docs/gbctr.pdf
 */
 
 use crate::bus::Bus;
+use crate::cpu::flags::Flags;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -72,17 +73,22 @@ const DATA_REGISTERS: [Register; DATA_REGISTER_COUNT] = [
     Register::L,
 ];
 
-const REGISTER_PAIRS: [(Register, Register); REGISTER_PAIR_COUNT] = [
-    (Register::B, Register::C),
-    (Register::D, Register::E),
-    (Register::H, Register::L),
-    (Register::W, Register::Z),
+const REGISTER_PAIRS: [(Register, Register, Register); REGISTER_PAIR_COUNT] = [
+    (Register::B, Register::C, Register::BC),
+    (Register::D, Register::E, Register::DE),
+    (Register::H, Register::L, Register::HL),
+    (Register::W, Register::Z, Register::WZ),
 ];
 
 impl Register {
     pub fn data_register(index: u8) -> Register {
         assert!((index as usize) < DATA_REGISTER_COUNT);
         DATA_REGISTERS[index as usize]
+    }
+
+    pub fn register_pair(index: u8) -> Register {
+        assert!((index as usize) < REGISTER_PAIR_COUNT);
+        REGISTER_PAIRS[index as usize].2
     }
 
     pub fn index(&self) -> usize {
@@ -136,10 +142,18 @@ impl RegisterFile {
 
             (high << 8) | low
         } else {
-            let (high, low) = REGISTER_PAIRS[register.index() - Register::BC.index()];
+            let (high, low, _) = REGISTER_PAIRS[register.index() - Register::BC.index()];
 
             ((self.read_u8(high) as u16) << 8) | self.read_u8(low) as u16
         }
+    }
+
+    pub fn read_u16_low(&self, register: Register) -> u8 {
+        self.read_u16(register) as u8
+    }
+
+    pub fn read_u16_high(&self, register: Register) -> u8 {
+        (self.read_u16(register) >> 8) as u8
     }
 
     pub fn write_u8(&mut self, register: Register, value: u8) {
@@ -156,7 +170,7 @@ impl RegisterFile {
             self.data[i + 1] = (value >> 8) as u8;
             self.data[i] = value as u8;
         } else {
-            let (high, low) = REGISTER_PAIRS[register.index() - Register::BC.index()];
+            let (high, low, _) = REGISTER_PAIRS[register.index() - Register::BC.index()];
             self.write_u8(high, (value >> 8) as u8);
             self.write_u8(low, value as u8);
         }
@@ -178,5 +192,9 @@ impl RegisterFile {
     pub fn write_address_bus(&self, register: Register) {
         let data = self.read_u16(register);
         self.address_bus.borrow_mut().write(data);
+    }
+
+    pub fn flags(&self) -> Flags {
+        Flags::from_u8(self.read_u8(Register::F))
     }
 }
