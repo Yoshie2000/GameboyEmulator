@@ -210,6 +210,25 @@ pub enum Instruction {
     // Opcode 0b11011111, 2 bytes, 2 cycles
     SBCI(),
 
+    // CP r
+    // Subtracts from the 8-bit A register, the 8-bit register r, and updates flags based on the result.
+    // This instruction is basically identical to SUB r, but does not update the A register
+    // Opcode 0b10111xxx, 1 byte, 1 cycle
+    CP(Register),
+
+    // CP (HL)
+    // Subtracts from the 8-bit A register, data from the absolute address specified by the 16-bit
+    // register HL, and updates flags based on the result. This instruction is basically identical to SUB
+    // (HL), but does not update the A register
+    // Opcode 0b10111110, 1 byte, 2 cycles
+    CP_HL(),
+
+    // CP n
+    // Subtracts from the 8-bit A register, the immediate data n, and updates flags based on the result.
+    // This instruction is basically identical to SUB n, but does not update the A register
+    // Opcode 0b11111110, 2 byte, 2 cycles
+    CPI(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
