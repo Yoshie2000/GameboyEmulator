@@ -36,4 +36,26 @@ impl ALU {
             .borrow_mut()
             .write_u8(register, self.buffer);
     }
+
+    pub fn add_with_bitwise_carry(&self, a: u8, b: u8, c: bool) -> (u8, u8) {
+        let mut result = 0u8;
+        let mut carry_bits = 0u8;
+        let mut carry = c as u8;
+
+        for i in 0..8 {
+            let bit_a = (a >> i) & 1;
+            let bit_b = (b >> i) & 1;
+
+            let sum = bit_a + bit_b + carry;
+            let bit_result = sum & 1;
+            carry = (sum >> 1) & 1;
+
+            result |= bit_result << i;
+            if carry == 1 {
+                carry_bits |= 1 << i;
+            }
+        }
+
+        (result, carry_bits)
+    }
 }

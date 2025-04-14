@@ -139,8 +139,42 @@ pub enum Instruction {
     // LD HL, SP+e
     // Load to the HL register, 16-bit data calculated by adding the signed 8-bit operand e to the 16-
     // bit value of the SP register
-    // Opcode 11111000, 2 bytes, 3 cycles
+    // Opcode 0b11111000, 2 bytes, 3 cycles
     LD_SPE(),
+
+    // ADD r
+    // Adds to the 8-bit register A, the 8-bit register r, and stores the result back into the A register
+    // Opcode 0b10000xxx, 1 byte, 1 cycle
+    ADD(Register),
+
+    // ADD (HL)
+    // Adds to the 8-bit A register, data from the absolute address specified by the 16-bit register HL,
+    // and stores the result back into the A register
+    // Opcode 0b10000110, 1 byte, 2 cycles
+    ADD_HL(),
+
+    // ADD n
+    // Adds to the 8-bit A register, the immediate data n, and stores the result back into the A register
+    // Opcode 0b11000110, 2 bytes, 2 cycles
+    ADDI(),
+
+    // ADC r
+    // Adds to the 8-bit A register, the carry flag and the 8-bit register r, and stores the result back
+    // into the A register
+    // Opcode 0b10001xxx, 1 byte, 1 cycle
+    ADC(Register),
+
+    // ADC (HL)
+    // Adds to the 8-bit A register, the carry flag and data from the absolute address specified by the
+    // 16-bit register HL, and stores the result back into the A register
+    // Opcode 0b10001110, 1 byte, 2 cycles
+    ADC_HL(),
+
+    // ADC n
+    // Adds to the 8-bit A register, the carry flag and the immediate data n, and stores the result back
+    // into the A register
+    // Opcode 0b11001111, 2 bytes, 2 cycles
+    ADCI(),
 
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.

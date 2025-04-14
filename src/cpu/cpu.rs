@@ -132,8 +132,25 @@ impl CPU {
                     panic!("Unimplemented or invalid instruction {instruction}");
                 }
             }
+            0b10 => {
+                if instruction_body_1 == 1 && instruction_body_2 == 6 {
+                    Instruction::ADC_HL()
+                } else if instruction_body_1 == 1 && instruction_body_2 < 6 {
+                    Instruction::ADC(Register::data_register(instruction_body_2))
+                } else if instruction_body_1 == 0 && instruction_body_2 < 6 {
+                    Instruction::ADD(Register::data_register(instruction_body_2))
+                } else if instruction_body_1 == 0 && instruction_body_2 == 6 {
+                    Instruction::ADD_HL()
+                } else {
+                    panic!("Unimplemented or invalid instruction {instruction}");
+                }
+            }
             0b11 => {
-                if instruction_body_1 == 7 && instruction_body_2 == 0 {
+                if instruction_body_1 == 0 && instruction_body_2 == 6 {
+                    Instruction::ADDI()
+                } else if instruction_body_1 == 1 && instruction_body_2 == 6 {
+                    Instruction::ADCI()
+                } else if instruction_body_1 == 7 && instruction_body_2 == 0 {
                     Instruction::LD_SPE()
                 } else if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 1 {
                     Instruction::POP(Register::register_pair(instruction_body_1 >> 1))
@@ -574,7 +591,7 @@ impl CPU {
                         .borrow_mut()
                         .write(self.register_file.borrow_mut().read_u16_low(Register::SP));
 
-                    let updated_wz = self.idu.increment_into(Register::WZ);
+                    self.idu.increment_into(Register::WZ);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -710,43 +727,11 @@ impl CPU {
                 1 => {
                     self.address_bus.borrow_mut().write(0x0000);
 
-                    fn add_with_bitwise_carry(a: u8, b: i8) -> (u8, u8) {
-                        let b_u8 = b as i16 as u8; // Wraps b as if it's added modulo 256
-                        let sum = a.wrapping_add(b_u8);
-
-                        let mut carry = 0u8;
-                        let mut carry_bit = 0;
-
-                        for i in 0..8 {
-                            let a_bit = (a >> i) & 1;
-                            let b_bit = (b_u8 >> i) & 1;
-
-                            let (sum_bit, new_carry) = match (a_bit, b_bit, carry_bit) {
-                                (0, 0, 0) => (0, 0),
-                                (0, 0, 1) => (1, 0),
-                                (0, 1, 0) => (1, 0),
-                                (0, 1, 1) => (0, 1),
-                                (1, 0, 0) => (1, 0),
-                                (1, 0, 1) => (0, 1),
-                                (1, 1, 0) => (0, 1),
-                                (1, 1, 1) => (1, 1),
-                                _ => panic!("This is impossible"),
-                            };
-
-                            if new_carry == 1 {
-                                carry |= 1 << i;
-                            }
-
-                            carry_bit = new_carry;
-                        }
-
-                        (sum, carry)
-                    }
-
                     // TODO this operation needs to be done by the ALU, though I'm not sure what to do with the flags yet
-                    let (result, bitwise_carry) = add_with_bitwise_carry(
+                    let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(
                         self.register_file.borrow().read_u16_low(Register::SP),
-                        self.register_file.borrow().read_u8(Register::Z) as i8,
+                        self.register_file.borrow().read_u8(Register::Z),
+                        false,
                     );
                     self.register_file
                         .borrow_mut()
@@ -786,6 +771,72 @@ impl CPU {
                     panic!("Unimplemented instruction counter for instruction");
                 }
             },
+
+            Instruction::ADD(r) => {
+                let v1 = self.register_file.borrow().read_u8(Register::A);
+                let v2 = self.register_file.borrow().read_u8(r);
+                let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(v1, v2, false);
+                self.register_file
+                    .borrow_mut()
+                    .write_u8(Register::A, result);
+
+                let mut flags = self.register_file.borrow().flags();
+                flags.set_z(result == 0);
+                flags.set_n(false);
+                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
+                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
+                self.register_file
+                    .borrow_mut()
+                    .write_u8(Register::F, flags.to_u8());
+            }
+
+            Instruction::ADD_HL() => {
+                self.register_file.borrow().write_address_bus(Register::HL);
+                // TODO Send read signal to the memory
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::ADD(Register::Z));
+            }
+
+            Instruction::ADDI() => {
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.current_instruction = Some(Instruction::ADD(Register::Z));
+            }
+
+            Instruction::ADC(r) => {
+                let v1 = self.register_file.borrow().read_u8(Register::A);
+                let v2 = self.register_file.borrow().read_u8(r);
+                let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(v1, v2, true);
+                self.register_file
+                    .borrow_mut()
+                    .write_u8(Register::A, result);
+
+                let mut flags = self.register_file.borrow().flags();
+                flags.set_z(result == 0);
+                flags.set_n(false);
+                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
+                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
+                self.register_file
+                    .borrow_mut()
+                    .write_u8(Register::F, flags.to_u8());
+            }
+
+            Instruction::ADC_HL() => {
+                self.register_file.borrow().write_address_bus(Register::HL);
+                // TODO Send read signal to the memory
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::ADC(Register::Z));
+            }
+
+            Instruction::ADCI() => {
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.current_instruction = Some(Instruction::ADC(Register::Z));
+            }
 
             Instruction::NOP() => {
                 self.current_instruction = None;
