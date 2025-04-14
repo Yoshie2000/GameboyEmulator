@@ -58,4 +58,28 @@ impl ALU {
 
         (result, carry_bits)
     }
+
+    pub fn sub_with_bitwise_carry(&self, a: u8, b: u8, c: bool) -> (u8, u8) {
+        let mut result = 0u8;
+        let mut carry_bits = 0u8;
+        let mut carry = c as u8;
+
+        for i in 0..8 {
+            let bit_a = (a >> i) & 1;
+            let bit_b = (b >> i) & 1;
+            let mut diff = bit_a as i8 - bit_b as i8 - carry as i8;
+
+            if diff < 0 {
+                diff += 2;
+                carry = 1;
+                carry_bits |= 1 << i;
+            } else {
+                carry = 0;
+            }
+
+            result |= (diff as u8 & 1) << i;
+        }
+
+        (result, carry_bits)
+    }
 }

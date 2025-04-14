@@ -176,6 +176,40 @@ pub enum Instruction {
     // Opcode 0b11001111, 2 bytes, 2 cycles
     ADCI(),
 
+    // SUB r
+    // Subtracts from the 8-bit register A, the 8-bit register r, and stores the result back into the A register
+    // Opcode 0b10010xxx, 1 byte, 1 cycle
+    SUB(Register),
+
+    // SUB (HL)
+    // Subtracts from the 8-bit A register, data from the absolute address specified by the 16-bit register HL,
+    // and stores the result back into the A register
+    // Opcode 0b10010110, 1 byte, 2 cycles
+    SUB_HL(),
+
+    // SUB n
+    // Subtracts from the 8-bit A register, the immediate data n, and stores the result back into the A register
+    // Opcode 0b11010110, 2 bytes, 2 cycles
+    SUBI(),
+
+    // SBC r
+    // Subtracts from the 8-bit A register, the carry flag and the 8-bit register r, and stores the result back
+    // into the A register
+    // Opcode 0b10011xxx, 1 byte, 1 cycle
+    SBC(Register),
+
+    // SBC (HL)
+    // Subtracts from the 8-bit A register, the carry flag and data from the absolute address specified by the
+    // 16-bit register HL, and stores the result back into the A register
+    // Opcode 0b10011110, 1 byte, 2 cycles
+    SBC_HL(),
+
+    // SBC n
+    // Subtracts from the 8-bit A register, the carry flag and the immediate data n, and stores the result back
+    // into the A register
+    // Opcode 0b11011111, 2 bytes, 2 cycles
+    SBCI(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
