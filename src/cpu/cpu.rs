@@ -88,7 +88,23 @@ impl CPU {
 
         match instruction_header {
             0b00 => {
-                if instruction_body_1 == 1 && instruction_body_2 == 0 {
+                if instruction_body_1 == 4 && instruction_body_2 == 7 {
+                    Instruction::DAA()
+                } else if instruction_body_1 == 5 && instruction_body_2 == 7 {
+                    Instruction::CPL()
+                } else if instruction_body_1 == 7 && instruction_body_2 == 7 {
+                    Instruction::CCF()
+                } else if instruction_body_1 == 6 && instruction_body_2 == 7 {
+                    Instruction::SCF()
+                } else if instruction_body_1 < 6 && instruction_body_2 == 4 {
+                    Instruction::INC(Register::data_register(instruction_body_1))
+                } else if instruction_body_1 == 6 && instruction_body_2 == 4 {
+                    Instruction::INC_HL()
+                } else if instruction_body_1 < 6 && instruction_body_2 == 5 {
+                    Instruction::DEC(Register::data_register(instruction_body_1))
+                } else if instruction_body_1 == 6 && instruction_body_2 == 5 {
+                    Instruction::DEC_HL()
+                } else if instruction_body_1 == 1 && instruction_body_2 == 0 {
                     Instruction::LD_SP()
                 } else if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 1 {
                     Instruction::LD_RR(Register::register_pair(instruction_body_1 >> 1))
@@ -133,7 +149,19 @@ impl CPU {
                 }
             }
             0b10 => {
-                if instruction_body_1 == 7 && instruction_body_2 < 6 {
+                if instruction_body_1 == 4 && instruction_body_2 < 6 {
+                    Instruction::AND(Register::data_register(instruction_body_2))
+                } else if instruction_body_1 == 4 && instruction_body_2 == 6 {
+                    Instruction::AND_HL()
+                } else if instruction_body_1 == 6 && instruction_body_2 < 6 {
+                    Instruction::OR(Register::data_register(instruction_body_2))
+                } else if instruction_body_1 == 6 && instruction_body_2 == 6 {
+                    Instruction::OR_HL()
+                } else if instruction_body_1 == 5 && instruction_body_2 < 6 {
+                    Instruction::XOR(Register::data_register(instruction_body_2))
+                } else if instruction_body_1 == 5 && instruction_body_2 == 6 {
+                    Instruction::XOR_HL()
+                } else if instruction_body_1 == 7 && instruction_body_2 < 6 {
                     Instruction::CP(Register::data_register(instruction_body_2))
                 } else if instruction_body_1 == 7 && instruction_body_2 == 6 {
                     Instruction::CP_HL()
@@ -168,6 +196,12 @@ impl CPU {
                     Instruction::ADCI()
                 } else if instruction_body_1 == 3 && instruction_body_2 == 6 {
                     Instruction::SBCI()
+                } else if instruction_body_1 == 4 && instruction_body_2 == 6 {
+                    Instruction::ANDI()
+                } else if instruction_body_1 == 6 && instruction_body_2 == 6 {
+                    Instruction::ORI()
+                } else if instruction_body_1 == 5 && instruction_body_2 == 6 {
+                    Instruction::XORI()
                 } else if instruction_body_1 == 7 && instruction_body_2 == 0 {
                     Instruction::LD_SPE()
                 } else if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 1 {
@@ -745,43 +779,17 @@ impl CPU {
                 1 => {
                     self.address_bus.borrow_mut().write(0x0000);
 
-                    // TODO this operation needs to be done by the ALU, though I'm not sure what to do with the flags yet
-                    let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(
-                        self.register_file.borrow().read_u16_low(Register::SP),
-                        self.register_file.borrow().read_u8(Register::Z),
-                        false,
-                    );
-                    self.register_file
-                        .borrow_mut()
-                        .write_u8(Register::L, result);
-                    let mut flags = self.register_file.borrow().flags();
-                    flags.set_z(false);
-                    flags.set_n(false);
-                    flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                    flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                    self.register_file
-                        .borrow_mut()
-                        .write_u8(Register::F, flags.to_u8());
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.add_register_16_low(Register::SP);
+                    self.alu.write_data_register(Register::L);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    // TODO This also needs to be done by the ALU
-                    let z_sign = self.register_file.borrow().read_u8(Register::Z) >> 7;
-                    let adj = if z_sign == 0 { 0x00 } else { 0xFF };
-                    let flags = self.register_file.borrow().flags();
-                    let updated_h = self
-                        .register_file
-                        .borrow()
-                        .read_u16_high(Register::SP)
-                        .overflowing_add(flags.get_c() as u8)
-                        .0
-                        .overflowing_add(adj)
-                        .0;
-                    self.register_file
-                        .borrow_mut()
-                        .write_u8(Register::H, updated_h);
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.add_register_16_high(Register::SP);
+                    self.alu.write_data_register(Register::H);
 
                     self.current_instruction = None;
                 }
@@ -791,21 +799,11 @@ impl CPU {
             },
 
             Instruction::ADD(r) => {
-                let v1 = self.register_file.borrow().read_u8(Register::A);
-                let v2 = self.register_file.borrow().read_u8(r);
-                let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(v1, v2, false);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::A, result);
+                self.alu.read_data_register(Register::A);
+                self.alu.add_register(r, false);
+                self.alu.write_data_register(Register::A);
 
-                let mut flags = self.register_file.borrow().flags();
-                flags.set_z(result == 0);
-                flags.set_n(false);
-                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::F, flags.to_u8());
+                self.current_instruction = None;
             }
 
             Instruction::ADD_HL() => {
@@ -824,21 +822,11 @@ impl CPU {
             }
 
             Instruction::ADC(r) => {
-                let v1 = self.register_file.borrow().read_u8(Register::A);
-                let v2 = self.register_file.borrow().read_u8(r);
-                let (result, bitwise_carry) = self.alu.add_with_bitwise_carry(v1, v2, true);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::A, result);
+                self.alu.read_data_register(Register::A);
+                self.alu.add_register(r, true);
+                self.alu.write_data_register(Register::A);
 
-                let mut flags = self.register_file.borrow().flags();
-                flags.set_z(result == 0);
-                flags.set_n(false);
-                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::F, flags.to_u8());
+                self.current_instruction = None;
             }
 
             Instruction::ADC_HL() => {
@@ -857,21 +845,11 @@ impl CPU {
             }
 
             Instruction::SUB(r) => {
-                let v1 = self.register_file.borrow().read_u8(Register::A);
-                let v2 = self.register_file.borrow().read_u8(r);
-                let (result, bitwise_carry) = self.alu.sub_with_bitwise_carry(v1, v2, false);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::A, result);
+                self.alu.read_data_register(Register::A);
+                self.alu.sub_register(r, false);
+                self.alu.write_data_register(Register::A);
 
-                let mut flags = self.register_file.borrow().flags();
-                flags.set_z(result == 0);
-                flags.set_n(true);
-                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::F, flags.to_u8());
+                self.current_instruction = None;
             }
 
             Instruction::SUB_HL() => {
@@ -890,21 +868,11 @@ impl CPU {
             }
 
             Instruction::SBC(r) => {
-                let v1 = self.register_file.borrow().read_u8(Register::A);
-                let v2 = self.register_file.borrow().read_u8(r);
-                let (result, bitwise_carry) = self.alu.sub_with_bitwise_carry(v1, v2, true);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::A, result);
+                self.alu.read_data_register(Register::A);
+                self.alu.sub_register(r, true);
+                self.alu.write_data_register(Register::A);
 
-                let mut flags = self.register_file.borrow().flags();
-                flags.set_z(result == 0);
-                flags.set_n(true);
-                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::F, flags.to_u8());
+                self.current_instruction = None;
             }
 
             Instruction::SBC_HL() => {
@@ -923,18 +891,10 @@ impl CPU {
             }
 
             Instruction::CP(r) => {
-                let v1 = self.register_file.borrow().read_u8(Register::A);
-                let v2 = self.register_file.borrow().read_u8(r);
-                let (result, bitwise_carry) = self.alu.sub_with_bitwise_carry(v1, v2, true);
+                self.alu.read_data_register(Register::A);
+                self.alu.sub_register(r, true);
 
-                let mut flags = self.register_file.borrow().flags();
-                flags.set_z(result == 0);
-                flags.set_n(true);
-                flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-                flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-                self.register_file
-                    .borrow_mut()
-                    .write_u8(Register::F, flags.to_u8());
+                self.current_instruction = None;
             }
 
             Instruction::CP_HL() => {
@@ -950,6 +910,180 @@ impl CPU {
                 self.register_file.borrow_mut().read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::CP(Register::Z));
+            }
+
+            Instruction::INC(r) => {
+                self.alu.read_data_register(r);
+                self.alu.increment();
+                self.alu.write_data_register(r);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::INC_HL() => match self.instruction_counter {
+                0 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+                    // TODO send read signal to memory
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.increment();
+                    self.alu.write_data_bus();
+                    // TODO send write signal to memory
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::DEC(r) => {
+                self.alu.read_data_register(r);
+                self.alu.decrement();
+                self.alu.write_data_register(r);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::DEC_HL() => match self.instruction_counter {
+                0 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+                    // TODO send read signal to memory
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.decrement();
+                    self.alu.write_data_bus();
+                    // TODO send write signal to memory
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::AND(r) => {
+                self.alu.read_data_register(Register::A);
+                self.alu.and(r);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::AND_HL() => {
+                self.register_file.borrow().write_address_bus(Register::HL);
+                // TODO send read signal to memory
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::AND(Register::Z));
+            }
+
+            Instruction::ANDI() => {
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::AND(Register::Z));
+            }
+
+            Instruction::OR(r) => {
+                self.alu.read_data_register(Register::A);
+                self.alu.or(r);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::OR_HL() => {
+                self.register_file.borrow().write_address_bus(Register::HL);
+                // TODO send read signal to memory
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::OR(Register::Z));
+            }
+
+            Instruction::ORI() => {
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::OR(Register::Z));
+            }
+
+            Instruction::XOR(r) => {
+                self.alu.read_data_register(Register::A);
+                self.alu.xor(r);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::XOR_HL() => {
+                self.register_file.borrow().write_address_bus(Register::HL);
+                // TODO send read signal to memory
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::XOR(Register::Z));
+            }
+
+            Instruction::XORI() => {
+                self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                self.skip_pc_increment = true;
+                self.current_instruction = Some(Instruction::XOR(Register::Z));
+            }
+
+            Instruction::CCF() => {
+                self.alu.flip_carry();
+
+                self.current_instruction = None;
+            }
+
+            Instruction::SCF() => {
+                self.alu.set_carry();
+
+                self.current_instruction = None;
+            }
+
+            Instruction::DAA() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.decimal_adjust();
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::CPL() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.flip();
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
             }
 
             Instruction::NOP() => {

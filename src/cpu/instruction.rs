@@ -229,6 +229,100 @@ pub enum Instruction {
     // Opcode 0b11111110, 2 byte, 2 cycles
     CPI(),
 
+    // INC r
+    // Increments data in the 8-bit register r
+    // Opcode 0b00xxx100, 1 byte, 1 cycle
+    INC(Register),
+
+    // INC (HL)
+    // Increments data at the absolute address specified by the 16-bit register HL
+    // Opcode 0b00110100, 1 byte, 3 cycles
+    INC_HL(),
+
+    // DEC r
+    // Decrements data in the 8-bit register r
+    // Opcode 0b00xxx101, 1 byte, 1 cycle
+    DEC(Register),
+
+    // DEC (HL)
+    // Decrements data at the absolute address specified by the 16-bit register HL
+    // Opcode 0b00110101, 1 byte, 3 cycles
+    DEC_HL(),
+
+    // AND r
+    // Performs a bitwise AND operation between the 8-bit register A and the 8-bit register r, and
+    // stores the result back into the A register
+    // Opcode 0b10100xxx, 1 byte, 1 cycle
+    AND(Register),
+
+    // AND (HL)
+    // Performs a bitwise AND operation between the 8-bit A register and data from the absolute
+    // address specified by the 16-bit register HL, and stores the result back into the A register
+    // Opcode 0b10100110, 1 byte, 2 cycles
+    AND_HL(),
+
+    // AND n
+    // Performs a bitwise AND operation between the 8-bit A register and immediate data n, and
+    // stores the result back into the A register
+    // Opcode 0b11100110, 2 bytes, 2 cycles
+    ANDI(),
+
+    // OR r
+    // Performs a bitwise OR operation between the 8-bit register A and the 8-bit register r, and
+    // stores the result back into the A register
+    // Opcode 0b10110xxx, 1 byte, 1 cycle
+    OR(Register),
+
+    // OR (HL)
+    // Performs a bitwise OR operation between the 8-bit A register and data from the absolute
+    // address specified by the 16-bit register HL, and stores the result back into the A register
+    // Opcode 0b10110110, 1 byte, 2 cycles
+    OR_HL(),
+
+    // OR n
+    // Performs a bitwise OR operation between the 8-bit A register and immediate data n, and
+    // stores the result back into the A register
+    // Opcode 0b11110110, 2 bytes, 2 cycles
+    ORI(),
+
+    // XOR r
+    // Performs a bitwise XOR operation between the 8-bit register A and the 8-bit register r, and
+    // stores the result back into the A register
+    // Opcode 0b10101xxx, 1 byte, 1 cycle
+    XOR(Register),
+
+    // XOR (HL)
+    // Performs a bitwise XOR operation between the 8-bit A register and data from the absolute
+    // address specified by the 16-bit register HL, and stores the result back into the A register
+    // Opcode 0b10101110, 1 byte, 2 cycles
+    XOR_HL(),
+
+    // XOR n
+    // Performs a bitwise XOR operation between the 8-bit A register and immediate data n, and
+    // stores the result back into the A register
+    // Opcode 0b11101110, 2 bytes, 2 cycles
+    XORI(),
+
+    // CCF
+    // Flips the carry flag, and clears the N and H flags
+    // Opcode 0b00111111, 1 byte, 1 cycle
+    CCF(),
+
+    // SCF
+    // Sets the carry flag, and clears the N and H flags
+    // Opcode 0b00110111, 1 byte, 1 cycle
+    SCF(),
+
+    // DAA
+    // Adjusts register A so that the correct representation of Binary Coded Decimal (BCD) is obtained
+    // Opcode 0b0010011, 1 byte, 1 cycle
+    DAA(),
+
+    // CPL
+    // Flips all the bits in the 8-bit register A, and sets the N and H flags
+    // Opcode 0b00101111, 1 byte, 1 cycle
+    CPL(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
