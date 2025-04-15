@@ -88,7 +88,13 @@ impl CPU {
 
         match instruction_header {
             0b00 => {
-                if instruction_body_1 == 4 && instruction_body_2 == 7 {
+                if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 3 {
+                    Instruction::INC_16(Register::register_pair(instruction_body_1 >> 1))
+                } else if (instruction_body_1 & 0x1) == 1 && instruction_body_2 == 3 {
+                    Instruction::DEC_16(Register::register_pair(instruction_body_1 >> 1))
+                } else if (instruction_body_1 & 0x1) == 1 && instruction_body_2 == 1 {
+                    Instruction::ADD_HL_16(Register::register_pair(instruction_body_1 >> 1))
+                } else if instruction_body_1 == 4 && instruction_body_2 == 7 {
                     Instruction::DAA()
                 } else if instruction_body_1 == 5 && instruction_body_2 == 7 {
                     Instruction::CPL()
@@ -186,7 +192,9 @@ impl CPU {
                 }
             }
             0b11 => {
-                if instruction_body_1 == 7 && instruction_body_2 == 6 {
+                if instruction_body_1 == 5 && instruction_body_2 == 0 {
+                    Instruction::ADD_SPE()
+                } else if instruction_body_1 == 7 && instruction_body_2 == 6 {
                     Instruction::CPI()
                 } else if instruction_body_1 == 0 && instruction_body_2 == 6 {
                     Instruction::ADDI()
@@ -780,16 +788,16 @@ impl CPU {
                     self.address_bus.borrow_mut().write(0x0000);
 
                     self.alu.read_data_register(Register::Z);
-                    self.alu.add_register_16_low(Register::SP);
-                    self.alu.write_data_register(Register::L);
+                    self.alu.addi_register_16_low(Register::SP);
+                    self.alu.write_register_pair_low(Register::HL);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 2 => {
                     self.alu.read_data_register(Register::Z);
-                    self.alu.add_register_16_high(Register::SP);
-                    self.alu.write_data_register(Register::H);
+                    self.alu.addi_register_16_high(Register::SP);
+                    self.alu.write_register_pair_high(Register::HL);
 
                     self.current_instruction = None;
                 }
@@ -1085,6 +1093,101 @@ impl CPU {
 
                 self.current_instruction = None;
             }
+
+            Instruction::INC_16(r) => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(r);
+                    self.idu.increment_into(r);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::DEC_16(r) => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow().write_address_bus(r);
+                    self.idu.decrement_into(r);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::ADD_HL_16(r) => match self.instruction_counter {
+                0 => {
+                    self.address_bus.borrow_mut().write(0x0000);
+
+                    self.alu.read_register_pair_low(Register::HL);
+                    self.alu.add_register_16_low(r);
+                    self.alu.write_register_pair_low(Register::HL);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.alu.read_register_pair_low(Register::HL);
+                    self.alu.add_register_16_high(r);
+                    self.alu.write_register_pair_low(Register::HL);
+
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::ADD_SPE() => match self.instruction_counter {
+                0 => {
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.address_bus.borrow_mut().write(0x0000);
+
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.addi_register_16_low(Register::SP);
+                    self.alu.write_register_pair_low(Register::WZ);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    self.address_bus.borrow_mut().write(0x0000);
+
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.addi_register_16_high(Register::SP);
+                    self.alu.write_register_pair_high(Register::WZ);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                3 => {
+                    self.register_file.borrow_mut().write_u16(
+                        Register::SP,
+                        self.register_file.borrow_mut().read_u16(Register::WZ),
+                    );
+
+                    self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
 
             Instruction::NOP() => {
                 self.current_instruction = None;

@@ -323,6 +323,28 @@ pub enum Instruction {
     // Opcode 0b00101111, 1 byte, 1 cycle
     CPL(),
 
+    // INC rr
+    // Increments data in the 16-bit register rr
+    // Opcode 0b00xx0011, 1 byte, 2 cycles
+    INC_16(Register),
+
+    // DEC rr
+    // Decrements data in the 16-bit register rr
+    // Opcode 0b00xx1011, 1 byte, 2 cycles
+    DEC_16(Register),
+
+    // ADD HL, rr
+    // Adds to the 16-bit HL register pair, the 16-bit register rr, and stores the result back into the HL
+    // register pair
+    // Opcode 0b00xx1001, 1 byte, 2 cycles
+    ADD_HL_16(Register),
+
+    // ADD SP, e
+    // Loads to the 16-bit register SP, 16-bit data calculated by adding the signed 8-bit operand e to
+    // the 16-bit value of the register SP
+    // Opcode 0b11101000, 2 bytes, 4 cycles
+    ADD_SPE(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle

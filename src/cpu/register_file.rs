@@ -176,6 +176,16 @@ impl RegisterFile {
         }
     }
 
+    pub fn write_u16_low(&mut self, register: Register, low: u8) {
+        let value = self.read_u16(register);
+        self.write_u16(register, (value & 0xFF00) | low as u16);
+    }
+
+    pub fn write_u16_high(&mut self, register: Register, high: u8) {
+        let value = self.read_u16(register);
+        self.write_u16(register, (value & 0x00FF) | ((high as u16) << 8));
+    }
+
     pub fn read_data_bus(&mut self, register: Register) {
         let data = self.data_bus.borrow().read().unwrap_or_else(|| {
             println!("WARNING: The data bus should not be empty at this point!");
