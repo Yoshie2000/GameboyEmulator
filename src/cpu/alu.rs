@@ -302,6 +302,46 @@ impl ALU {
             .write_u8(Register::F, flags.to_u8());
     }
 
+    pub fn rotate_left(&mut self, replace_with_carry: bool) {
+        let mut flags = self.register_file.borrow().flags();
+
+        let high_bit = self.buffer >> 7;
+        let replacement = if replace_with_carry {
+            flags.get_c() as u8
+        } else {
+            high_bit
+        };
+        self.buffer = (self.buffer << 1) & replacement;
+
+        flags.set_z(self.buffer == 0);
+        flags.set_n(false);
+        flags.set_h(false);
+        flags.set_c(high_bit == 0x1);
+        self.register_file
+            .borrow_mut()
+            .write_u8(Register::F, flags.to_u8());
+    }
+
+    pub fn rotate_right(&mut self, replace_with_carry: bool) {
+        let mut flags = self.register_file.borrow().flags();
+
+        let low_bit = self.buffer & 0x1;
+        let replacement = if replace_with_carry {
+            flags.get_c() as u8
+        } else {
+            low_bit
+        };
+        self.buffer = (self.buffer >> 1) & (replacement << 7);
+
+        flags.set_z(self.buffer == 0);
+        flags.set_n(false);
+        flags.set_h(false);
+        flags.set_c(low_bit == 0x1);
+        self.register_file
+            .borrow_mut()
+            .write_u8(Register::F, flags.to_u8());
+    }
+
     fn add_with_bitwise_carry(&self, a: u8, b: u8, c: bool) -> (u8, u8) {
         let mut result = 0u8;
         let mut carry_bits = 0u8;

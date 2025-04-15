@@ -88,7 +88,15 @@ impl CPU {
 
         match instruction_header {
             0b00 => {
-                if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 3 {
+                if instruction_body_1 == 0 && instruction_body_2 == 7 {
+                    Instruction::RLCA()
+                } else if instruction_body_1 == 1 && instruction_body_2 == 7 {
+                    Instruction::RRCA()
+                } else if instruction_body_1 == 2 && instruction_body_2 == 7 {
+                    Instruction::RLA()
+                } else if instruction_body_1 == 3 && instruction_body_2 == 7 {
+                    Instruction::RRA()
+                } else if (instruction_body_1 & 0x1) == 0 && instruction_body_2 == 3 {
                     Instruction::INC_16(Register::register_pair(instruction_body_1 >> 1))
                 } else if (instruction_body_1 & 0x1) == 1 && instruction_body_2 == 3 {
                     Instruction::DEC_16(Register::register_pair(instruction_body_1 >> 1))
@@ -192,7 +200,9 @@ impl CPU {
                 }
             }
             0b11 => {
-                if instruction_body_1 == 5 && instruction_body_2 == 0 {
+                if instruction_body_1 == 1 && instruction_body_2 == 3 {
+                    Instruction::CB()
+                } else if instruction_body_1 == 5 && instruction_body_2 == 0 {
                     Instruction::ADD_SPE()
                 } else if instruction_body_1 == 7 && instruction_body_2 == 6 {
                     Instruction::CPI()
@@ -237,6 +247,18 @@ impl CPU {
             _ => {
                 panic!("Unimplemented or invalid instruction {instruction}");
             }
+        }
+    }
+
+    pub fn decode_cb(&mut self) -> Instruction {
+        let instruction = self.register_file.borrow().read_u8(Register::IR);
+        let instruction_body_1 = (instruction >> 4) & 0xF;
+        let instruction_body_2 = instruction & 0xF;
+
+        if instruction_body_1 == 0x0 && instruction_body_2 < 0x8 {
+            Instruction::RLC(Register::data_register(instruction_body_2))
+        } else {
+            panic!("Unimplemented or invalid instruction {instruction}");
         }
     }
 
@@ -1186,6 +1208,65 @@ impl CPU {
                 }
                 _ => {
                     panic!("Unimplemented instruction counter for instruction");
+                }
+            },
+
+            Instruction::RLCA() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.rotate_left(false);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::RRCA() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.rotate_right(false);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::RLA() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.rotate_left(true);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::RRA() => {
+                self.alu.read_data_register(Register::A);
+                self.alu.rotate_right(true);
+                self.alu.write_data_register(Register::A);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::CB() => {
+                self.register_file.borrow_mut().read_data_bus(Register::IR);
+
+                self.current_instruction = Some(self.decode_cb());
+            }
+
+            Instruction::RLC(r) => match r {
+                Register::HL => {
+                    self.alu.read_register_pair_high(r);
+                    self.alu.rotate_left(false);
+                    self.alu.write_register_pair_high(r);
+
+                    self.alu.read_register_pair_low(r);
+                    self.alu.rotate_left(false);
+                    self.alu.write_register_pair_low(r);
+
+                    self.current_instruction = None;
+                }
+                _ => {
+                    self.alu.read_data_register(r);
+                    self.alu.rotate_left(false);
+                    self.alu.write_data_register(r);
+
+                    self.current_instruction = None;
                 }
             },
 

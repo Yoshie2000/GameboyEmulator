@@ -345,6 +345,42 @@ pub enum Instruction {
     // Opcode 0b11101000, 2 bytes, 4 cycles
     ADD_SPE(),
 
+    // RLCA
+    // Rotates the 8-bit value of register A to the left, setting the carry flag and the
+    // rightmost bit to the lost bit
+    // Opcode 0b00000111, 1 byte, 1 cycle
+    RLCA(),
+
+    // RRCA
+    // Rotates the 8-bit value of register A to the right, setting the carry flag and the
+    // leftmost bit to the lost bit.
+    // Opcode 0b00001111, 1 byte, 1 cycle
+    RRCA(),
+
+    // RLA
+    // Rotates the 8-bit value of register A to the left, setting the rightmost bit to the carry
+    // flag and the carry flag to the leftmost bit
+    // Opcode 0b00010111, 1 byte, 1 cycle
+    RLA(),
+
+    // RRA
+    // Rotates the 8-bit value of register A to the right, setting the leftmost bit to the carry
+    // flag and the carry flag to the rightmost bit
+    // Opcode 0b00011111, 1 byte, 1 cycle
+    RRA(),
+
+    // CB
+    // Instructions prefixed with CB are at least 2 bytes long, meaning a second byte has to be read
+    // in order to determine the true instruction behind this opcode
+    // Opcode 0b11001011, 2+ bytes, 2+ cycles
+    CB(),
+
+    // RLC r
+    // Rotates the 8-bit value of register r to the left, setting the carry flag and the
+    // rightmost bit to the lost bit
+    // Opcode CB 0b00000xxx, 2 bytes, 2 cycles
+    RLC(Register),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
