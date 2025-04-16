@@ -60,7 +60,7 @@ pub enum Register {
 }
 
 const REGISTER_COUNT: usize = 18;
-const DATA_REGISTER_COUNT: usize = 8;
+const DATA_REGISTER_COUNT: usize = 6;
 const REGISTER_PAIR_COUNT: usize = 4;
 const REGISTER_FILE_BYTES: usize = 16;
 
@@ -71,8 +71,6 @@ const DATA_REGISTERS: [Register; DATA_REGISTER_COUNT] = [
     Register::E,
     Register::H,
     Register::L,
-    Register::HL,
-    Register::A,
 ];
 
 const REGISTER_PAIRS: [(Register, Register, Register); REGISTER_PAIR_COUNT] = [

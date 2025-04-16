@@ -255,8 +255,18 @@ impl CPU {
         let instruction_body_1 = (instruction >> 4) & 0xF;
         let instruction_body_2 = instruction & 0xF;
 
-        if instruction_body_1 == 0x0 && instruction_body_2 < 0x8 {
+        if instruction_body_1 == 0x0 && instruction_body_2 < 0x6 {
             Instruction::RLC(Register::data_register(instruction_body_2))
+        } else if instruction_body_1 == 0x0 && instruction_body_2 == 0x6 {
+            Instruction::RLC_HL()
+        } else if instruction_body_1 == 0x0 && instruction_body_2 == 0x7 {
+            Instruction::RLC(Register::A)
+        } else if instruction_body_1 == 0x0 && instruction_body_2 < 0xE {
+            Instruction::RRC(Register::data_register(instruction_body_2 - 0x8))
+        } else if instruction_body_1 == 0x0 && instruction_body_2 == 0xE {
+            Instruction::RRC_HL()
+        } else if instruction_body_1 == 0x0 && instruction_body_2 == 0xF {
+            Instruction::RRC(Register::A)
         } else {
             panic!("Unimplemented or invalid instruction {instruction}");
         }
@@ -1249,24 +1259,85 @@ impl CPU {
                 self.current_instruction = Some(self.decode_cb());
             }
 
-            Instruction::RLC(r) => match r {
-                Register::HL => {
-                    self.alu.read_register_pair_high(r);
-                    self.alu.rotate_left(false);
-                    self.alu.write_register_pair_high(r);
+            Instruction::RLC(r) => {
+                self.alu.read_data_register(r);
+                self.alu.rotate_left(false);
+                self.alu.write_data_register(r);
 
-                    self.alu.read_register_pair_low(r);
-                    self.alu.rotate_left(false);
-                    self.alu.write_register_pair_low(r);
+                self.current_instruction = None;
+            }
 
+            Instruction::RLC_HL() => match self.instruction_counter {
+                0 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+                    // TODO Send read signal to memory
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.rotate_left(false);
+                    self.alu.write_data_bus();
+                    // TODO Send write signal to memory
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
                     self.current_instruction = None;
                 }
                 _ => {
-                    self.alu.read_data_register(r);
-                    self.alu.rotate_left(false);
-                    self.alu.write_data_register(r);
+                    panic!("Unimplemented instruction counter for instruction");
+                }
+            },
 
+            Instruction::RRC(r) => {
+                self.alu.read_data_register(r);
+                self.alu.rotate_right(false);
+                self.alu.write_data_register(r);
+
+                self.current_instruction = None;
+            }
+
+            Instruction::RRC_HL() => match self.instruction_counter {
+                0 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+                    // TODO Send read signal to memory
+                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                1 => {
+                    self.register_file
+                        .borrow_mut()
+                        .write_address_bus(Register::HL);
+
+                    self.alu.read_data_register(Register::Z);
+                    self.alu.rotate_right(false);
+                    self.alu.write_data_bus();
+                    // TODO Send write signal to memory
+
+                    self.skip_pc_increment = true;
+                    self.instruction_counter += 1;
+                }
+                2 => {
+                    // This clock cycle is necessary since the address and data bus were busy in the previous cycle
                     self.current_instruction = None;
+                }
+                _ => {
+                    panic!("Unimplemented instruction counter for instruction");
                 }
             },
 
