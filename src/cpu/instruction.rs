@@ -382,7 +382,7 @@ pub enum Instruction {
     RLC(Register),
 
     // RLC (HL)
-    // Rotates data at the absolute address specified by the 16-bit register HL to the left,
+    // Rotates 8-bit value at the absolute address specified by the 16-bit register HL to the left,
     // setting the carry flag and the rightmost bit to the lost bit
     // Opcode CB 0b00000110, 2 bytes, 4 cycles
     RLC_HL(),
@@ -394,10 +394,34 @@ pub enum Instruction {
     RRC(Register),
 
     // RRC (HL)
-    // Rotates data at the absolute address specified by the 16-bit register HL to the right,
+    // Rotates 8-bit value at the absolute address specified by the 16-bit register HL to the right,
     // setting the carry flag and the rightmost bit to the lost bit
     // Opcode CB 0b00001110, 2 bytes, 4 cycles
     RRC_HL(),
+
+    // RL r
+    // Rotates the 8-bit value of register r to the left, setting the rightmost bit to the carry
+    // flag and the carry flag to the leftmost bit
+    // Opcode CB 0b00010xxx, 2 bytes, 2 cycles
+    RL(Register),
+
+    // RL (HL)
+    // Rotates 8-bit value at the absolute address specified by the 16-bit register HL to the left,
+    // setting the carry flag and the rightmost bit to the lost bit
+    // Opcode CB 0b00010xxx, 2 bytes, 2 cycles
+    RL_HL(),
+
+    // RR r
+    // Rotates the 8-bit value of register r to the right, setting the leftmost bit to the carry
+    // flag and the carry flag to the rightmost bit
+    // Opcode CB 0b00011xxx, 2 bytes, 2 cycles
+    RR(Register),
+
+    // RR (HL)
+    // Rotates 8-bit value at the absolute address specified by the 16-bit register HL to the right,
+    // setting the carry flag and the leftmost bit to the lost bit
+    // Opcode CB 0b00011110, 2 bytes, 2 cycles
+    RR_HL(),
 
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
