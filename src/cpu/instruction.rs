@@ -408,7 +408,7 @@ pub enum Instruction {
     // RL (HL)
     // Rotates 8-bit value at the absolute address specified by the 16-bit register HL to the left,
     // setting the carry flag and the rightmost bit to the lost bit
-    // Opcode CB 0b00010xxx, 2 bytes, 2 cycles
+    // Opcode CB 0b00010110, 2 bytes, 2 cycles
     RL_HL(),
 
     // RR r
@@ -422,6 +422,42 @@ pub enum Instruction {
     // setting the carry flag and the leftmost bit to the lost bit
     // Opcode CB 0b00011110, 2 bytes, 2 cycles
     RR_HL(),
+
+    // SLA r
+    // Arithmetically shifts the 8-bit value of register r to the left, setting the carry to the
+    // leftmost bit
+    // Opcode CB 0b00100xxx, 2 bytes, 2 cycles
+    SLA(Register),
+
+    // SLA (HL)
+    // Arithmetically shifts the 8-bit value at the absolute address specified by the 16-bit
+    // register HL to the left, setting the carry to the leftmost bit
+    // Opcode CB 0b00100110, 2 bytes, 4 cycles
+    SLA_HL(),
+
+    // SRA r
+    // Arithmetically shifts the 8-bit value of register r to the right, setting the carry to the
+    // rightmost bit
+    // Opcode CB 0b00101xxx, 2 bytes, 2 cycles
+    SRA(Register),
+
+    // SRA (HL)
+    // Arithmetically shifts the 8-bit value at the absolute address specified by the 16-bit
+    // register HL to the right, setting the carry to the rightmost bit
+    // Opcode CB 0b00101110, 2 bytes, 4 cycles
+    SRA_HL(),
+
+    // SRL r
+    // Logically shifts the 8-bit value of register r to the right, setting the carry to the
+    // rightmost bit
+    // Opcode CB 0b00111xxx, 2 bytes, 2 cycles
+    SRL(Register),
+
+    // SRL (HL)
+    // Logically shifts the 8-bit value at the absolute address specified by the 16-bit
+    // register HL to the right, setting the carry to the rightmost bit
+    // Opcode CB 0b00111110, 2 bytes, 4 cycles
+    SRL_HL(),
 
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.

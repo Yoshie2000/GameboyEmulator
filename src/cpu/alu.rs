@@ -342,6 +342,35 @@ impl ALU {
             .write_u8(Register::F, flags.to_u8());
     }
 
+    pub fn shift_left(&mut self) {
+        let high_bit = self.buffer >> 7;
+        self.buffer = self.buffer << 1;
+
+        let mut flags = self.register_file.borrow().flags();
+        flags.set_z(self.buffer == 0);
+        flags.set_n(false);
+        flags.set_h(false);
+        flags.set_c(high_bit == 0x1);
+        self.register_file
+            .borrow_mut()
+            .write_u8(Register::F, flags.to_u8());
+    }
+
+    pub fn shift_right(&mut self, arithmetic: bool) {
+        let low_bit = self.buffer & 0x1;
+        let replacement = if arithmetic { self.buffer >> 7 } else { 0 };
+        self.buffer = (self.buffer >> 1) & (replacement << 7);
+
+        let mut flags = self.register_file.borrow().flags();
+        flags.set_z(self.buffer == 0);
+        flags.set_n(false);
+        flags.set_h(false);
+        flags.set_c(low_bit == 0x1);
+        self.register_file
+            .borrow_mut()
+            .write_u8(Register::F, flags.to_u8());
+    }
+
     fn add_with_bitwise_carry(&self, a: u8, b: u8, c: bool) -> (u8, u8) {
         let mut result = 0u8;
         let mut carry_bits = 0u8;
