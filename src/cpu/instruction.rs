@@ -459,6 +459,46 @@ pub enum Instruction {
     // Opcode CB 0b00111110, 2 bytes, 4 cycles
     SRL_HL(),
 
+    // SWAP r
+    // Swaps the lower and upper nibbles of the 8-bit value of register r
+    // Opcode CB 0b00110xxx, 2 bytes, 2 cycles
+    SWAP(Register),
+
+    // SWAP (HL)
+    // Swaps the lower and upper nibbles of the 8-bit value at the absolute address specified by register HL
+    // Opcode CB 0b00110110, 2 bytes, 4 cycles
+    SWAP_HL(),
+
+    // BIT b, r
+    // Set the Z flag to the complement of the b-th bit of the 8-bit value of register r
+    // Opcode CB 0b01xxxxxx, 2 bytes, 2 cycles
+    BIT(u8, Register),
+
+    // BIT b, (HL)
+    // Set the Z flag to the complement of the b-th bit of the 8-bit value at the absolute address specified by register HL
+    // Opcode CB 0b01xxx110, 2 bytes, 3 cycles
+    BIT_HL(u8),
+
+    // RES b, r
+    // Reset the b-th bit of the 8-bit value of register r
+    // Opcode CB 0b10xxxxxx, 2 bytes, 2 cycles
+    RES(u8, Register),
+
+    // RES b, (HL)
+    // Reset the b-th bit of the 8-bit value at the absolute address specified by register HL
+    // Opcode CB 0b10xxx110, 2 bytes, 3 cycles
+    RES_HL(u8),
+
+    // SET b, r
+    // Set the b-th bit of the 8-bit value of register r
+    // Opcode CB 0b11xxxxxx, 2 bytes, 2 cycles
+    SET(u8, Register),
+
+    // SET b, (HL)
+    // Set the b-th bit of the 8-bit value at the absolute address specified by register HL
+    // Opcode CB 0b11xxx110, 2 bytes, 3 cycles
+    SET_HL(u8),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
