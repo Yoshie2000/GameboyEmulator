@@ -404,6 +404,24 @@ impl ALU {
         self.buffer = self.buffer | (0x1 << bit_idx);
     }
 
+    pub fn jump_relative_add(&mut self) -> i32 {
+        let sign = self.buffer >> 7;
+        let (result, bitwise_carry) = self.add_with_bitwise_carry(
+            self.buffer,
+            self.register_file.borrow().read_u16_low(Register::PC),
+            false,
+        );
+        self.buffer = result;
+
+        if (bitwise_carry >> 7) == 0x1 && sign == 0x0 {
+            1
+        } else if (bitwise_carry >> 7) == 0x0 && sign == 0x1 {
+            -1
+        } else {
+            0
+        }
+    }
+
     fn add_with_bitwise_carry(&self, a: u8, b: u8, c: bool) -> (u8, u8) {
         let mut result = 0u8;
         let mut carry_bits = 0u8;

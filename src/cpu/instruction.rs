@@ -499,6 +499,33 @@ pub enum Instruction {
     // Opcode CB 0b11xxx110, 2 bytes, 3 cycles
     SET_HL(u8),
 
+    // JP nn
+    // Unconditional jump to the absolute address specified by the 16-bit immediate operand nn
+    // Opcode 0b11000011, 3 bytes, 4 cycles
+    JPI(),
+
+    // JP HL
+    // Unconditional jump to the absolute address specified by the 16-bit register HL
+    // Opcode 0b11101001, 1 byte, 1 cycle
+    JP_HL(),
+
+    // JP cc, nn
+    // Conditional jump to the absolute address specified by the 16-bit operand nn, depending on the
+    // condition cc. The lower bit of cc indicates whether to compare the flag to 0 or 1 (if set, compare to 1).
+    // The higher bit of cc indicates whether the flag to compare with is Z or C (if set, C, else Z)
+    // Opcode 0b110xx010, 3 bytes, 3/4 cycles
+    JP_CCI(bool, bool),
+
+    // JR e
+    // Unconditional jump to the relative address specified by the signed 8-bit operand e
+    // Opcode 0b00011000, 2 bytes, 3 cycles
+    JR(),
+
+    // JR cc, e
+    // Conditional jump to the relative address specified by the signed 8-bit operand e
+    // Opcode 0b001xx000, 2 bytes, 2/3 cycles
+    JR_CC(bool, bool),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle

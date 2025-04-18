@@ -54,4 +54,22 @@ impl IDU {
             .borrow_mut()
             .write_u16(register, address - 1)
     }
+
+    pub fn adjust_u8_into(&self, register: Register, adjustment: i32) {
+        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+            println!("WARNING: The address bus should not be empty at this point!");
+            0
+        }) as u8;
+
+        let adjusted_address = match adjustment {
+            1 => address + 1,
+            -1 => address - 1,
+            0 => address,
+            _ => panic!("Illegal adjustment"),
+        };
+
+        self.register_file
+            .borrow_mut()
+            .write_u8(register, adjusted_address)
+    }
 }
