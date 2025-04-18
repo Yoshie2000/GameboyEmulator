@@ -526,6 +526,54 @@ pub enum Instruction {
     // Opcode 0b001xx000, 2 bytes, 2/3 cycles
     JR_CC(bool, bool),
 
+    // CALL nn
+    // Unconditional function call to the absolute address specified by the 16-bit operand nn
+    // Opcode 0b11001101, 3 bytes, 6 cycles
+    CALL(),
+
+    // CALL cc, nn
+    // Conditional function call to the absolute address specified by the 16-bit operand nn
+    // Opcode 0b110xx100, 3 bytes, 3/6 cycles
+    CALL_CC(bool, bool),
+
+    // RET
+    // Unconditional return from a function
+    // Opcode 0b11001001, 1 byte, 4 cycles
+    RET(),
+
+    // RET cc
+    // Conditional return from a function
+    // Opcode 0b110xx000, 1 byte, 2/5 cycles
+    RET_CC(bool, bool),
+
+    // RETI
+    // Unconditional return from a function, enables interrupts
+    // Opcode 0b11011001, 1 byte, 4 cycles
+    RETI(),
+
+    // RST n
+    // Unconditional function call to the absolute fixed address defined by the opcode
+    // Opcode 0b11xxx111
+    RST(u8),
+
+    // HALT
+    // Opcode 0b01110110, 1 byte
+    HALT(),
+
+    // STOP
+    // Opcode 0b00010000, 1 byte
+    STOP(),
+
+    // DI
+    // Disable interrupts
+    // Opcode 0b11110011, 1 byte, 1 cycle
+    DI(),
+
+    // EI
+    // Enable interrupts
+    // Opcode 0b11111011, 1 byte, 1 cycle
+    EI(),
+
     // NOP
     // No operation. Can be used to add a delay of one machine cycle.
     // Opcode 0b00000000, 1 byte, 1 cycle
