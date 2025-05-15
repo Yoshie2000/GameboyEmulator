@@ -12,15 +12,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct IDU {
-    address_bus: Rc<RefCell<Bus<u16>>>,
-    register_file: Rc<RefCell<RegisterFile>>,
+    address_bus: Rc<Bus<u16>>,
+    register_file: Rc<RegisterFile>,
 }
 
 impl IDU {
-    pub fn new(
-        address_bus: Rc<RefCell<Bus<u16>>>,
-        register_file: Rc<RefCell<RegisterFile>>,
-    ) -> IDU {
+    pub fn new(address_bus: Rc<Bus<u16>>, register_file: Rc<RegisterFile>) -> IDU {
         IDU {
             address_bus,
             register_file,
@@ -28,35 +25,31 @@ impl IDU {
     }
 
     pub fn write_into(&self, register: Register) {
-        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+        let address = self.address_bus.read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         });
-        self.register_file.borrow_mut().write_u16(register, address)
+        self.register_file.write_u16(register, address)
     }
 
     pub fn increment_into(&self, register: Register) {
-        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+        let address = self.address_bus.read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         });
-        self.register_file
-            .borrow_mut()
-            .write_u16(register, address + 1)
+        self.register_file.write_u16(register, address + 1)
     }
 
     pub fn decrement_into(&self, register: Register) {
-        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+        let address = self.address_bus.read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         });
-        self.register_file
-            .borrow_mut()
-            .write_u16(register, address - 1)
+        self.register_file.write_u16(register, address - 1)
     }
 
     pub fn adjust_u8_into(&self, register: Register, adjustment: i32) {
-        let address = self.address_bus.borrow().read().unwrap_or_else(|| {
+        let address = self.address_bus.read().unwrap_or_else(|| {
             println!("WARNING: The address bus should not be empty at this point!");
             0
         }) as u8;
@@ -68,8 +61,6 @@ impl IDU {
             _ => panic!("Illegal adjustment"),
         };
 
-        self.register_file
-            .borrow_mut()
-            .write_u8(register, adjusted_address)
+        self.register_file.write_u8(register, adjusted_address)
     }
 }
