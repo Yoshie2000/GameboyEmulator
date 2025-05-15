@@ -11,13 +11,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct ALU {
-    data_bus: Rc<RefCell<Bus<u8>>>,
-    register_file: Rc<RefCell<RegisterFile>>,
+    data_bus: Rc<Bus<u8>>,
+    register_file: Rc<RegisterFile>,
     buffer: u8,
 }
 
 impl ALU {
-    pub fn new(data_bus: Rc<RefCell<Bus<u8>>>, register_file: Rc<RefCell<RegisterFile>>) -> ALU {
+    pub fn new(data_bus: Rc<Bus<u8>>, register_file: Rc<RegisterFile>) -> ALU {
         ALU {
             data_bus,
             register_file,
@@ -28,63 +28,54 @@ impl ALU {
     pub fn clock_cycle(&mut self) {}
 
     pub fn read_data_register(&mut self, register: Register) {
-        self.buffer = self.register_file.borrow().read_u8(register);
+        self.buffer = self.register_file.read_u8(register);
     }
 
     pub fn read_register_pair_low(&mut self, register: Register) {
-        self.buffer = self.register_file.borrow().read_u16_low(register);
+        self.buffer = self.register_file.read_u16_low(register);
     }
 
     pub fn read_register_pair_high(&mut self, register: Register) {
-        self.buffer = self.register_file.borrow().read_u16_high(register);
+        self.buffer = self.register_file.read_u16_high(register);
     }
 
     pub fn write_data_register(&mut self, register: Register) {
-        self.register_file
-            .borrow_mut()
-            .write_u8(register, self.buffer);
+        self.register_file.write_u8(register, self.buffer);
     }
 
     pub fn write_register_pair_low(&mut self, register: Register) {
-        self.register_file
-            .borrow_mut()
-            .write_u16_low(register, self.buffer);
+        self.register_file.write_u16_low(register, self.buffer);
     }
 
     pub fn write_register_pair_high(&mut self, register: Register) {
-        self.register_file
-            .borrow_mut()
-            .write_u16_high(register, self.buffer);
+        self.register_file.write_u16_high(register, self.buffer);
     }
 
     pub fn write_data_bus(&self) {
-        self.data_bus.borrow_mut().write(self.buffer);
+        self.data_bus.write(self.buffer);
     }
 
     pub fn addi_register_16_low(&mut self, register: Register) {
         let (result, bitwise_carry) = self.add_with_bitwise_carry(
             self.buffer,
-            self.register_file.borrow().read_u16_low(register),
+            self.register_file.read_u16_low(register),
             false,
         );
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(false);
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
         flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn addi_register_16_high(&mut self, register: Register) {
         let adj = if (self.buffer >> 7) == 0 { 0x00 } else { 0xFF };
-        let flags = self.register_file.borrow().flags();
+        let flags = self.register_file.flags();
         self.buffer = self
             .register_file
-            .borrow()
             .read_u16_high(register)
             .overflowing_add(flags.get_c() as u8)
             .0
@@ -95,175 +86,147 @@ impl ALU {
     pub fn add_register_16_low(&mut self, register: Register) {
         let (result, bitwise_carry) = self.add_with_bitwise_carry(
             self.buffer,
-            self.register_file.borrow().read_u16_low(register),
+            self.register_file.read_u16_low(register),
             false,
         );
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
         flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn add_register_16_high(&mut self, register: Register) {
         let (result, bitwise_carry) = self.add_with_bitwise_carry(
             self.buffer,
-            self.register_file.borrow().read_u16_high(register),
+            self.register_file.read_u16_high(register),
             true,
         );
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
         flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn add_register(&mut self, register: Register, consider_carry: bool) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         let carry = if !consider_carry {
             false
         } else {
             flags.get_c()
         };
 
-        let (result, bitwise_carry) = self.add_with_bitwise_carry(
-            self.buffer,
-            self.register_file.borrow().read_u8(register),
-            carry,
-        );
+        let (result, bitwise_carry) =
+            self.add_with_bitwise_carry(self.buffer, self.register_file.read_u8(register), carry);
         self.buffer = result;
 
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
         flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn sub_register(&mut self, register: Register, consider_carry: bool) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         let carry = if !consider_carry {
             false
         } else {
             flags.get_c()
         };
 
-        let (result, bitwise_carry) = self.sub_with_bitwise_carry(
-            self.buffer,
-            self.register_file.borrow().read_u8(register),
-            carry,
-        );
+        let (result, bitwise_carry) =
+            self.sub_with_bitwise_carry(self.buffer, self.register_file.read_u8(register), carry);
         self.buffer = result;
 
         flags.set_z(result == 0);
         flags.set_n(true);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
         flags.set_c(((bitwise_carry >> 7) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn increment(&mut self) {
         let (result, bitwise_carry) = self.add_with_bitwise_carry(self.buffer, 1, false);
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn decrement(&mut self) {
         let (result, bitwise_carry) = self.sub_with_bitwise_carry(self.buffer, 1, false);
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(((bitwise_carry >> 3) & 0x1) == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn and(&mut self, register: Register) {
-        let result = self.buffer & self.register_file.borrow().read_u8(register);
+        let result = self.buffer & self.register_file.read_u8(register);
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(true);
         flags.set_c(false);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn or(&mut self, register: Register) {
-        let result = self.buffer | self.register_file.borrow().read_u8(register);
+        let result = self.buffer | self.register_file.read_u8(register);
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(false);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn xor(&mut self, register: Register) {
-        let result = self.buffer ^ self.register_file.borrow().read_u8(register);
+        let result = self.buffer ^ self.register_file.read_u8(register);
         self.buffer = result;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(result == 0);
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(false);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn flip_carry(&self) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(!flags.get_c());
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn set_carry(&self) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(true);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn decimal_adjust(&mut self) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
 
         if !flags.get_n() {
             // After an addition, adjust if (half-)carry occurred or if result is out of bounds
@@ -286,24 +249,20 @@ impl ALU {
 
         flags.set_z(self.buffer == 0);
         flags.set_h(false);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn flip(&mut self) {
         self.buffer = !self.buffer;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_n(true);
         flags.set_h(true);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn rotate_left(&mut self, replace_with_carry: bool) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
 
         let high_bit = self.buffer >> 7;
         let replacement = if replace_with_carry {
@@ -317,13 +276,11 @@ impl ALU {
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(high_bit == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn rotate_right(&mut self, replace_with_carry: bool) {
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
 
         let low_bit = self.buffer & 0x1;
         let replacement = if replace_with_carry {
@@ -337,23 +294,19 @@ impl ALU {
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(low_bit == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn shift_left(&mut self) {
         let high_bit = self.buffer >> 7;
         self.buffer = self.buffer << 1;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(self.buffer == 0);
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(high_bit == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn shift_right(&mut self, arithmetic: bool) {
@@ -361,39 +314,33 @@ impl ALU {
         let replacement = if arithmetic { self.buffer >> 7 } else { 0 };
         self.buffer = (self.buffer >> 1) & (replacement << 7);
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(self.buffer == 0);
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(low_bit == 0x1);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn swap(&mut self) {
         self.buffer = ((self.buffer & 0xF) << 4) | ((self.buffer & 0xF0) >> 4);
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(self.buffer == 0);
         flags.set_n(false);
         flags.set_h(false);
         flags.set_c(false);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn test_bit(&mut self, bit_idx: u8) {
         let bit_value = (self.buffer >> bit_idx) & 0x1;
 
-        let mut flags = self.register_file.borrow().flags();
+        let mut flags = self.register_file.flags();
         flags.set_z(bit_value == 0x0);
         flags.set_n(false);
         flags.set_h(true);
-        self.register_file
-            .borrow_mut()
-            .write_u8(Register::F, flags.to_u8());
+        self.register_file.write_u8(Register::F, flags.to_u8());
     }
 
     pub fn reset_bit(&mut self, bit_idx: u8) {
@@ -408,7 +355,7 @@ impl ALU {
         let sign = self.buffer >> 7;
         let (result, bitwise_carry) = self.add_with_bitwise_carry(
             self.buffer,
-            self.register_file.borrow().read_u16_low(Register::PC),
+            self.register_file.read_u16_low(Register::PC),
             false,
         );
         self.buffer = result;

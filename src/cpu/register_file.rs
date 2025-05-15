@@ -9,6 +9,7 @@ https://gekkio.fi/files/gb-docs/gbctr.pdf
 
 use crate::bus::Bus;
 use crate::cpu::flags::Flags;
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -97,9 +98,9 @@ impl Register {
 }
 
 pub struct RegisterFile {
-    data: [u8; REGISTER_FILE_BYTES],
-    data_bus: Rc<RefCell<Bus<u8>>>,
-    address_bus: Rc<RefCell<Bus<u16>>>,
+    data: [Cell<u8>; REGISTER_FILE_BYTES],
+    data_bus: Rc<Bus<u8>>,
+    address_bus: Rc<Bus<u16>>,
 }
 
 impl Display for RegisterFile {
@@ -118,9 +119,9 @@ impl Display for RegisterFile {
 }
 
 impl RegisterFile {
-    pub fn new(data_bus: Rc<RefCell<Bus<u8>>>, address_bus: Rc<RefCell<Bus<u16>>>) -> RegisterFile {
+    pub fn new(data_bus: Rc<Bus<u8>>, address_bus: Rc<Bus<u16>>) -> RegisterFile {
         RegisterFile {
-            data: [0; REGISTER_FILE_BYTES],
+            data: ([const { Cell::new(0) }; REGISTER_FILE_BYTES]),
             data_bus,
             address_bus,
         }
@@ -129,7 +130,7 @@ impl RegisterFile {
     pub fn read_u8(&self, register: Register) -> u8 {
         assert!(register.index() < Register::PC.index());
 
-        self.data[register.index()]
+        self.data[register.index()].get()
     }
 
     pub fn read_u16(&self, register: Register) -> u16 {
@@ -137,8 +138,8 @@ impl RegisterFile {
 
         if register.index() < Register::BC.index() {
             let i = 2 * register.index() - Register::PC.index();
-            let high = self.data[i + 1] as u16;
-            let low = self.data[i] as u16;
+            let high = self.data[i + 1].get() as u16;
+            let low = self.data[i].get() as u16;
 
             (high << 8) | low
         } else {
@@ -156,19 +157,18 @@ impl RegisterFile {
         (self.read_u16(register) >> 8) as u8
     }
 
-    pub fn write_u8(&mut self, register: Register, value: u8) {
+    pub fn write_u8(&self, register: Register, value: u8) {
         assert!(register.index() < Register::PC.index());
-
-        self.data[register.index()] = value;
+        self.data[register.index()].set(value);
     }
 
-    pub fn write_u16(&mut self, register: Register, value: u16) {
+    pub fn write_u16(&self, register: Register, value: u16) {
         assert!(register.index() >= Register::PC.index());
 
         if register.index() < Register::BC.index() {
             let i = 2 * register.index() - Register::PC.index();
-            self.data[i + 1] = (value >> 8) as u8;
-            self.data[i] = value as u8;
+            self.data[i + 1].set((value >> 8) as u8);
+            self.data[i].set(value as u8);
         } else {
             let (high, low, _) = REGISTER_PAIRS[register.index() - Register::BC.index()];
             self.write_u8(high, (value >> 8) as u8);
@@ -176,18 +176,18 @@ impl RegisterFile {
         }
     }
 
-    pub fn write_u16_low(&mut self, register: Register, low: u8) {
+    pub fn write_u16_low(&self, register: Register, low: u8) {
         let value = self.read_u16(register);
         self.write_u16(register, (value & 0xFF00) | low as u16);
     }
 
-    pub fn write_u16_high(&mut self, register: Register, high: u8) {
+    pub fn write_u16_high(&self, register: Register, high: u8) {
         let value = self.read_u16(register);
         self.write_u16(register, (value & 0x00FF) | ((high as u16) << 8));
     }
 
-    pub fn read_data_bus(&mut self, register: Register) {
-        let data = self.data_bus.borrow().read().unwrap_or_else(|| {
+    pub fn read_data_bus(&self, register: Register) {
+        let data = self.data_bus.read().unwrap_or_else(|| {
             println!("WARNING: The data bus should not be empty at this point!");
             0
         });
@@ -196,12 +196,12 @@ impl RegisterFile {
 
     pub fn write_data_bus(&self, register: Register) {
         let data = self.read_u8(register);
-        self.data_bus.borrow_mut().write(data);
+        self.data_bus.write(data);
     }
 
     pub fn write_address_bus(&self, register: Register) {
         let data = self.read_u16(register);
-        self.address_bus.borrow_mut().write(data);
+        self.address_bus.write(data);
     }
 
     pub fn flags(&self) -> Flags {

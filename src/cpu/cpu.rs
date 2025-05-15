@@ -9,9 +9,9 @@ use std::rc::Rc;
 
 pub struct CPU {
     control_unit: ControlUnit,
-    data_bus: Rc<RefCell<Bus<u8>>>,
-    register_file: Rc<RefCell<RegisterFile>>,
-    address_bus: Rc<RefCell<Bus<u16>>>,
+    pub data_bus: Rc<Bus<u8>>,
+    pub register_file: Rc<RegisterFile>,
+    address_bus: Rc<Bus<u16>>,
     alu: ALU,
     idu: IDU,
 
@@ -22,12 +22,12 @@ pub struct CPU {
 
 impl CPU {
     pub fn new() -> CPU {
-        let data_bus = Rc::new(RefCell::new(Bus::<u8>::new()));
-        let address_bus = Rc::new(RefCell::new(Bus::<u16>::new()));
-        let register_file = Rc::new(RefCell::new(RegisterFile::new(
+        let data_bus = Rc::new(Bus::<u8>::new());
+        let address_bus = Rc::new(Bus::<u16>::new());
+        let register_file = Rc::new(RegisterFile::new(
             Rc::clone(&data_bus),
             Rc::clone(&address_bus),
-        )));
+        ));
 
         CPU {
             control_unit: ControlUnit::new(),
@@ -40,14 +40,6 @@ impl CPU {
             instruction_counter: 0,
             skip_pc_increment: false,
         }
-    }
-
-    pub fn data_bus_mut(&mut self) -> RefMut<'_, Bus<u8>> {
-        self.data_bus.borrow_mut()
-    }
-
-    pub fn register_file(&self) -> Ref<'_, RegisterFile> {
-        self.register_file.borrow()
     }
 
     pub fn clock_cycle(&mut self) {
@@ -67,21 +59,20 @@ impl CPU {
             self.instruction_counter = 0;
 
             // Read the next instruction from the data bus
-            self.register_file.borrow_mut().read_data_bus(Register::IR);
+            self.register_file.read_data_bus(Register::IR);
         }
 
         // Increment the PC via the IDU
         if !self.skip_pc_increment {
             self.address_bus
-                .borrow_mut()
-                .write(self.register_file.borrow().read_u16(Register::PC));
+                .write(self.register_file.read_u16(Register::PC));
             self.idu.increment_into(Register::PC);
         }
         self.skip_pc_increment = false;
     }
 
     pub fn decode(&mut self) -> Instruction {
-        let instruction = self.register_file.borrow().read_u8(Register::IR);
+        let instruction = self.register_file.read_u8(Register::IR);
         let instruction_header = instruction >> 6;
         let instruction_body_1 = (instruction >> 3) & 0x7;
         let instruction_body_2 = instruction & 0x7;
@@ -293,7 +284,7 @@ impl CPU {
     }
 
     pub fn decode_cb(&mut self) -> Instruction {
-        let instruction = self.register_file.borrow().read_u8(Register::IR);
+        let instruction = self.register_file.read_u8(Register::IR);
         let instruction_body_1 = (instruction >> 4) & 0xF;
         let instruction_body_2 = instruction & 0xF;
 
@@ -395,7 +386,7 @@ impl CPU {
 
             Instruction::LDI(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
@@ -410,9 +401,9 @@ impl CPU {
 
             Instruction::LD(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -429,8 +420,8 @@ impl CPU {
 
             Instruction::LDM(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::HL);
-                    self.register_file.borrow().write_data_bus(r);
+                    self.register_file.write_address_bus(Register::HL);
+                    self.register_file.write_data_bus(r);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -446,12 +437,12 @@ impl CPU {
 
             Instruction::LDMI() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow().write_address_bus(Register::HL);
-                    self.register_file.borrow().write_data_bus(Register::Z);
+                    self.register_file.write_address_bus(Register::HL);
+                    self.register_file.write_data_bus(Register::Z);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -467,9 +458,9 @@ impl CPU {
 
             Instruction::LDA_BC() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::BC);
+                    self.register_file.write_address_bus(Register::BC);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -486,9 +477,9 @@ impl CPU {
 
             Instruction::LDA_DE() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::DE);
+                    self.register_file.write_address_bus(Register::DE);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -505,8 +496,8 @@ impl CPU {
 
             Instruction::LDAM_BC() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::BC);
-                    self.register_file.borrow().write_data_bus(Register::A);
+                    self.register_file.write_address_bus(Register::BC);
+                    self.register_file.write_data_bus(Register::A);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -522,8 +513,8 @@ impl CPU {
 
             Instruction::LDAM_DE() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::DE);
-                    self.register_file.borrow().write_data_bus(Register::A);
+                    self.register_file.write_address_bus(Register::DE);
+                    self.register_file.write_data_bus(Register::A);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -539,15 +530,15 @@ impl CPU {
 
             Instruction::LDAD() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file.borrow().write_address_bus(Register::WZ);
+                    self.register_file.write_address_bus(Register::WZ);
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
@@ -563,16 +554,16 @@ impl CPU {
 
             Instruction::LDAMD() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file.borrow().write_address_bus(Register::WZ);
-                    self.register_file.borrow().write_data_bus(Register::A);
+                    self.register_file.write_address_bus(Register::WZ);
+                    self.register_file.write_data_bus(Register::A);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -588,11 +579,11 @@ impl CPU {
 
             Instruction::LDH() => match self.instruction_counter {
                 0 => {
-                    let c = self.register_file.borrow().read_u8(Register::C);
+                    let c = self.register_file.read_u8(Register::C);
                     let address = 0xFF00 | (c as u16);
-                    self.address_bus.borrow_mut().write(address);
+                    self.address_bus.write(address);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -609,10 +600,10 @@ impl CPU {
 
             Instruction::LDH_M() => match self.instruction_counter {
                 0 => {
-                    let c = self.register_file.borrow().read_u8(Register::C);
+                    let c = self.register_file.read_u8(Register::C);
                     let address = 0xFF00 | (c as u16);
-                    self.address_bus.borrow_mut().write(address);
-                    self.register_file.borrow_mut().write_data_bus(Register::A);
+                    self.address_bus.write(address);
+                    self.register_file.write_data_bus(Register::A);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -628,15 +619,15 @@ impl CPU {
 
             Instruction::LDH_D() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    let c = self.register_file.borrow().read_u8(Register::Z);
+                    let c = self.register_file.read_u8(Register::Z);
                     let address = 0xFF00 | (c as u16);
-                    self.address_bus.borrow_mut().write(address);
+                    self.address_bus.write(address);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -653,14 +644,14 @@ impl CPU {
 
             Instruction::LDH_DM() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    let c = self.register_file.borrow().read_u8(Register::Z);
+                    let c = self.register_file.read_u8(Register::Z);
                     let address = 0xFF00 | (c as u16);
-                    self.address_bus.borrow_mut().write(address);
-                    self.register_file.borrow_mut().write_data_bus(Register::A);
+                    self.address_bus.write(address);
+                    self.register_file.write_data_bus(Register::A);
                     // TODO send write signal to the memory
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -676,9 +667,9 @@ impl CPU {
 
             Instruction::LDH_HLM() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.decrement_into(Register::HL);
 
@@ -697,10 +688,8 @@ impl CPU {
 
             Instruction::LDH_HLMM() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
-                    self.register_file.borrow_mut().write_data_bus(Register::A);
+                    self.register_file.write_address_bus(Register::HL);
+                    self.register_file.write_data_bus(Register::A);
 
                     self.idu.decrement_into(Register::HL);
 
@@ -718,9 +707,9 @@ impl CPU {
 
             Instruction::LDH_HLP() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO send read signal to the memory (needs to be synchronous)
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.increment_into(Register::HL);
 
@@ -739,10 +728,8 @@ impl CPU {
 
             Instruction::LDH_HLPM() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
-                    self.register_file.borrow_mut().write_data_bus(Register::A);
+                    self.register_file.write_address_bus(Register::HL);
+                    self.register_file.write_data_bus(Register::A);
 
                     self.idu.increment_into(Register::HL);
 
@@ -760,16 +747,16 @@ impl CPU {
 
             Instruction::LD_RR(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    let wz = self.register_file.borrow_mut().read_u16(Register::WZ);
-                    self.register_file.borrow_mut().write_u16(r, wz);
+                    let wz = self.register_file.read_u16(Register::WZ);
+                    self.register_file.write_u16(r, wz);
                     self.current_instruction = None;
                 }
                 _ => {
@@ -779,20 +766,17 @@ impl CPU {
 
             Instruction::LD_SP() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::WZ);
+                    self.register_file.write_address_bus(Register::WZ);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow_mut().read_u16_low(Register::SP));
+                        .write(self.register_file.read_u16_low(Register::SP));
 
                     self.idu.increment_into(Register::WZ);
 
@@ -800,12 +784,9 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 3 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::WZ);
+                    self.register_file.write_address_bus(Register::WZ);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow_mut().read_u16_low(Register::SP));
+                        .write(self.register_file.read_u16_low(Register::SP));
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -821,9 +802,7 @@ impl CPU {
 
             Instruction::LD_SP_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     self.idu.write_into(Register::SP);
 
                     self.skip_pc_increment = true;
@@ -840,21 +819,15 @@ impl CPU {
 
             Instruction::PUSH(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.idu.decrement_into(Register::SP);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
-                    self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow_mut().read_u16_high(r));
+                    self.register_file.write_address_bus(Register::SP);
+                    self.data_bus.write(self.register_file.read_u16_high(r));
                     // TODO send memory write signal
 
                     self.idu.decrement_into(Register::SP);
@@ -863,12 +836,8 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
-                    self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow_mut().read_u16_low(r));
+                    self.register_file.write_address_bus(Register::SP);
+                    self.data_bus.write(self.register_file.read_u16_low(r));
                     // TODO send memory write signal
 
                     // This seems like a no-op, though it's in the datasheet so we'll leave it here for completeness purposes
@@ -888,11 +857,9 @@ impl CPU {
 
             Instruction::POP(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.increment_into(Register::SP);
 
@@ -900,11 +867,9 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
 
                     self.idu.increment_into(Register::SP);
 
@@ -913,8 +878,7 @@ impl CPU {
                 }
                 2 => {
                     self.register_file
-                        .borrow_mut()
-                        .write_u16(r, self.register_file.borrow_mut().read_u16(Register::WZ));
+                        .write_u16(r, self.register_file.read_u16(Register::WZ));
                     self.current_instruction = None;
                 }
                 _ => {
@@ -924,11 +888,11 @@ impl CPU {
 
             Instruction::LD_SPE() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.addi_register_16_low(Register::SP);
@@ -958,16 +922,16 @@ impl CPU {
             }
 
             Instruction::ADD_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO Send read signal to the memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::ADD(Register::Z));
             }
 
             Instruction::ADDI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::ADD(Register::Z));
             }
@@ -981,16 +945,16 @@ impl CPU {
             }
 
             Instruction::ADC_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO Send read signal to the memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::ADC(Register::Z));
             }
 
             Instruction::ADCI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::ADC(Register::Z));
             }
@@ -1004,16 +968,16 @@ impl CPU {
             }
 
             Instruction::SUB_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO Send read signal to the memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::SUB(Register::Z));
             }
 
             Instruction::SUBI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::SUB(Register::Z));
             }
@@ -1027,16 +991,16 @@ impl CPU {
             }
 
             Instruction::SBC_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO Send read signal to the memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::SBC(Register::Z));
             }
 
             Instruction::SBCI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::SBC(Register::Z));
             }
@@ -1049,16 +1013,16 @@ impl CPU {
             }
 
             Instruction::CP_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO Send read signal to the memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::CP(Register::Z));
             }
 
             Instruction::CPI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.current_instruction = Some(Instruction::CP(Register::Z));
             }
@@ -1073,11 +1037,9 @@ impl CPU {
 
             Instruction::INC_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -1110,11 +1072,9 @@ impl CPU {
 
             Instruction::DEC_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -1146,16 +1106,16 @@ impl CPU {
             }
 
             Instruction::AND_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO send read signal to memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::AND(Register::Z));
             }
 
             Instruction::ANDI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::AND(Register::Z));
@@ -1170,16 +1130,16 @@ impl CPU {
             }
 
             Instruction::OR_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO send read signal to memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::OR(Register::Z));
             }
 
             Instruction::ORI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::OR(Register::Z));
@@ -1194,16 +1154,16 @@ impl CPU {
             }
 
             Instruction::XOR_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 // TODO send read signal to memory
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::XOR(Register::Z));
             }
 
             Instruction::XORI() => {
-                self.register_file.borrow_mut().read_data_bus(Register::Z);
+                self.register_file.read_data_bus(Register::Z);
 
                 self.skip_pc_increment = true;
                 self.current_instruction = Some(Instruction::XOR(Register::Z));
@@ -1239,7 +1199,7 @@ impl CPU {
 
             Instruction::INC_16(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(r);
+                    self.register_file.write_address_bus(r);
                     self.idu.increment_into(r);
 
                     self.skip_pc_increment = true;
@@ -1256,7 +1216,7 @@ impl CPU {
 
             Instruction::DEC_16(r) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow().write_address_bus(r);
+                    self.register_file.write_address_bus(r);
                     self.idu.decrement_into(r);
 
                     self.skip_pc_increment = true;
@@ -1273,7 +1233,7 @@ impl CPU {
 
             Instruction::ADD_HL_16(r) => match self.instruction_counter {
                 0 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
                     self.alu.read_register_pair_low(Register::HL);
                     self.alu.add_register_16_low(r);
@@ -1296,11 +1256,11 @@ impl CPU {
 
             Instruction::ADD_SPE() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.addi_register_16_low(Register::SP);
@@ -1310,7 +1270,7 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.addi_register_16_high(Register::SP);
@@ -1320,10 +1280,8 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 3 => {
-                    self.register_file.borrow_mut().write_u16(
-                        Register::SP,
-                        self.register_file.borrow_mut().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::SP, self.register_file.read_u16(Register::WZ));
 
                     self.current_instruction = None;
                 }
@@ -1365,7 +1323,7 @@ impl CPU {
             }
 
             Instruction::CB() => {
-                self.register_file.borrow_mut().read_data_bus(Register::IR);
+                self.register_file.read_data_bus(Register::IR);
 
                 self.current_instruction = Some(self.decode_cb());
             }
@@ -1380,19 +1338,15 @@ impl CPU {
 
             Instruction::RLC_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.rotate_left(false);
@@ -1421,19 +1375,15 @@ impl CPU {
 
             Instruction::RRC_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.rotate_right(false);
@@ -1462,19 +1412,15 @@ impl CPU {
 
             Instruction::RL_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.rotate_left(true);
@@ -1503,19 +1449,15 @@ impl CPU {
 
             Instruction::RR_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.rotate_right(true);
@@ -1544,19 +1486,15 @@ impl CPU {
 
             Instruction::SLA_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.shift_left();
@@ -1585,19 +1523,15 @@ impl CPU {
 
             Instruction::SRA_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.shift_right(true);
@@ -1626,19 +1560,15 @@ impl CPU {
 
             Instruction::SRL_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.shift_right(false);
@@ -1667,19 +1597,15 @@ impl CPU {
 
             Instruction::SWAP_HL() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.swap();
@@ -1707,19 +1633,15 @@ impl CPU {
 
             Instruction::BIT_HL(bit_idx) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.test_bit(bit_idx);
@@ -1740,19 +1662,15 @@ impl CPU {
 
             Instruction::RES_HL(bit_idx) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.reset_bit(bit_idx);
@@ -1780,19 +1698,15 @@ impl CPU {
 
             Instruction::SET_HL(bit_idx) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::HL);
+                    self.register_file.write_address_bus(Register::HL);
 
                     self.alu.read_data_register(Register::Z);
                     self.alu.set_bit(bit_idx);
@@ -1813,19 +1727,17 @@ impl CPU {
 
             Instruction::JPI() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.address_bus.borrow_mut().write(0x0000);
-                    self.register_file.borrow_mut().write_u16(
-                        Register::PC,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.address_bus.write(0x0000);
+                    self.register_file
+                        .write_u16(Register::PC, self.register_file.read_u16(Register::WZ));
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
@@ -1838,7 +1750,7 @@ impl CPU {
             },
 
             Instruction::JP_HL() => {
-                self.register_file.borrow().write_address_bus(Register::HL);
+                self.register_file.write_address_bus(Register::HL);
                 self.idu.increment_into(Register::PC);
 
                 self.skip_pc_increment = true;
@@ -1847,25 +1759,23 @@ impl CPU {
 
             Instruction::JP_CCI(value, flag) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    let flags = self.register_file.borrow().flags();
+                    let flags = self.register_file.flags();
                     let flag_value = if flag { flags.get_c() } else { flags.get_z() };
                     let comparision = flag_value == value;
 
                     if comparision {
-                        self.address_bus.borrow_mut().write(0x0000);
+                        self.address_bus.write(0x0000);
 
-                        self.register_file.borrow_mut().write_u16(
-                            Register::PC,
-                            self.register_file.borrow().read_u16(Register::WZ),
-                        );
+                        self.register_file
+                            .write_u16(Register::PC, self.register_file.read_u16(Register::WZ));
 
                         self.instruction_counter += 1;
                     } else {
@@ -1883,7 +1793,7 @@ impl CPU {
 
             Instruction::JR() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
@@ -1892,15 +1802,14 @@ impl CPU {
                     self.alu.write_data_register(Register::Z);
 
                     self.address_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC) as u16);
+                        .write(self.register_file.read_u16_high(Register::PC) as u16);
                     self.idu.adjust_u8_into(Register::W, adjustment);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file.borrow().write_address_bus(Register::WZ);
+                    self.register_file.write_address_bus(Register::WZ);
                     self.idu.increment_into(Register::PC);
 
                     self.skip_pc_increment = true;
@@ -1913,9 +1822,9 @@ impl CPU {
 
             Instruction::JR_CC(value, flag) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
-                    let flags = self.register_file.borrow().flags();
+                    let flags = self.register_file.flags();
                     let flag_value = if flag { flags.get_c() } else { flags.get_z() };
                     let comparision = flag_value == value;
 
@@ -1935,15 +1844,14 @@ impl CPU {
                     self.alu.write_data_register(Register::Z);
 
                     self.address_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC) as u16);
+                        .write(self.register_file.read_u16_high(Register::PC) as u16);
                     self.idu.adjust_u8_into(Register::W, adjustment);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 3 => {
-                    self.register_file.borrow().write_address_bus(Register::WZ);
+                    self.register_file.write_address_bus(Register::WZ);
                     self.idu.increment_into(Register::PC);
 
                     self.skip_pc_increment = true;
@@ -1956,28 +1864,23 @@ impl CPU {
 
             Instruction::CALL() => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.idu.decrement_into(Register::SP);
 
                     self.instruction_counter += 1;
                 }
                 3 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC));
+                        .write(self.register_file.read_u16_high(Register::PC));
                     // TODO Send write signal to memory
 
                     self.idu.decrement_into(Register::SP);
@@ -1985,20 +1888,15 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 4 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_low(Register::PC));
+                        .write(self.register_file.read_u16_low(Register::PC));
                     // TODO Send write signal to memory
 
                     self.idu.write_into(Register::SP);
 
-                    self.register_file.borrow_mut().write_u16(
-                        Register::SP,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::SP, self.register_file.read_u16(Register::WZ));
 
                     self.instruction_counter += 1;
                 }
@@ -2013,13 +1911,13 @@ impl CPU {
 
             Instruction::CALL_CC(value, flag) => match self.instruction_counter {
                 0 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
 
-                    let flags = self.register_file.borrow().flags();
+                    let flags = self.register_file.flags();
                     let flag_value = if flag { flags.get_c() } else { flags.get_z() };
                     let comparision = flag_value == value;
 
@@ -2034,20 +1932,15 @@ impl CPU {
                     self.current_instruction = None;
                 }
                 3 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.idu.decrement_into(Register::SP);
 
                     self.instruction_counter += 1;
                 }
                 4 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC));
+                        .write(self.register_file.read_u16_high(Register::PC));
                     // TODO Send write signal to memory
 
                     self.idu.decrement_into(Register::SP);
@@ -2055,20 +1948,15 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 5 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_low(Register::PC));
+                        .write(self.register_file.read_u16_low(Register::PC));
                     // TODO Send write signal to memory
 
                     self.idu.write_into(Register::SP);
 
-                    self.register_file.borrow_mut().write_u16(
-                        Register::SP,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::SP, self.register_file.read_u16(Register::WZ));
 
                     self.instruction_counter += 1;
                 }
@@ -2083,11 +1971,9 @@ impl CPU {
 
             Instruction::RET() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2095,11 +1981,9 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2107,12 +1991,10 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
-                    self.register_file.borrow_mut().write_u16(
-                        Register::PC,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::PC, self.register_file.read_u16(Register::WZ));
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -2128,9 +2010,9 @@ impl CPU {
 
             Instruction::RET_CC(value, flag) => match self.instruction_counter {
                 0 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
-                    let flags = self.register_file.borrow().flags();
+                    let flags = self.register_file.flags();
                     let flag_value = if flag { flags.get_c() } else { flags.get_z() };
                     let comparision = flag_value == value;
 
@@ -2142,11 +2024,9 @@ impl CPU {
                     }
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2154,11 +2034,9 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2166,12 +2044,10 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 3 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
-                    self.register_file.borrow_mut().write_u16(
-                        Register::PC,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::PC, self.register_file.read_u16(Register::WZ));
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
@@ -2187,11 +2063,9 @@ impl CPU {
 
             Instruction::RETI() => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::Z);
+                    self.register_file.read_data_bus(Register::Z);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2199,11 +2073,9 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     // TODO Send read signal to memory
-                    self.register_file.borrow_mut().read_data_bus(Register::W);
+                    self.register_file.read_data_bus(Register::W);
 
                     self.idu.increment_into(Register::SP);
 
@@ -2211,12 +2083,10 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.address_bus.borrow_mut().write(0x0000);
+                    self.address_bus.write(0x0000);
 
-                    self.register_file.borrow_mut().write_u16(
-                        Register::PC,
-                        self.register_file.borrow().read_u16(Register::WZ),
-                    );
+                    self.register_file
+                        .write_u16(Register::PC, self.register_file.read_u16(Register::WZ));
 
                     self.control_unit.enable_interrupts();
 
@@ -2234,21 +2104,16 @@ impl CPU {
 
             Instruction::RST(address) => match self.instruction_counter {
                 0 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.idu.decrement_into(Register::SP);
 
                     self.skip_pc_increment = true;
                     self.instruction_counter += 1;
                 }
                 1 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC));
+                        .write(self.register_file.read_u16_high(Register::PC));
                     // TODO send write signal to memory
 
                     self.idu.decrement_into(Register::SP);
@@ -2257,19 +2122,14 @@ impl CPU {
                     self.instruction_counter += 1;
                 }
                 2 => {
-                    self.register_file
-                        .borrow_mut()
-                        .write_address_bus(Register::SP);
+                    self.register_file.write_address_bus(Register::SP);
                     self.data_bus
-                        .borrow_mut()
-                        .write(self.register_file.borrow().read_u16_high(Register::PC));
+                        .write(self.register_file.read_u16_high(Register::PC));
                     // TODO send write signal to memory
 
                     self.idu.write_into(Register::SP);
 
-                    self.register_file
-                        .borrow_mut()
-                        .write_u16(Register::PC, address as u16);
+                    self.register_file.write_u16(Register::PC, address as u16);
 
                     self.instruction_counter += 1;
                 }

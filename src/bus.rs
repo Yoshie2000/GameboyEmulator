@@ -1,21 +1,33 @@
+use std::cell::Cell;
+
 pub struct Bus<T: Copy> {
-    value: Option<T>,
+    value: Cell<Option<T>>,
+}
+
+impl<T: Copy> Default for Bus<T> {
+    fn default() -> Bus<T> {
+        Self {
+            value: Cell::new(None),
+        }
+    }
 }
 
 impl<T: Copy> Bus<T> {
     pub fn new() -> Self {
-        Bus { value: None }
+        Bus {
+            value: Cell::new(None),
+        }
     }
 
-    pub fn write(&mut self, data: T) {
-        self.value = Some(data)
+    pub fn write(&self, data: T) {
+        self.value.set(Some(data));
     }
 
-    pub fn clear(&mut self) {
-        self.value = None
+    pub fn clear(&self) {
+        self.value.set(None);
     }
 
     pub fn read(&self) -> Option<T> {
-        self.value
+        self.value.get()
     }
 }
