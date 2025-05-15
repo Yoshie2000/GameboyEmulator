@@ -12,10 +12,8 @@ use crate::cpu::flags::Flags;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
-#[derive(Copy, Clone, Debug, EnumIter)]
+#[derive(Copy, Clone, Debug)]
 pub enum Register {
     // u8
     IR,
@@ -57,6 +55,14 @@ pub enum Register {
     HL,
     // u16
     WZ,
+}
+
+impl Register {
+    fn iter() -> impl Iterator<Item=Register> {
+        use Register::*;
+        let regs = [IR, IE, A, F, B, C, D, E, H, L, W, Z, PC, SP, BC, DE, HL, WZ];
+        regs.into_iter()
+    }
 }
 
 const REGISTER_COUNT: usize = 18;
