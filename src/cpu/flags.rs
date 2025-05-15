@@ -3,6 +3,11 @@ pub struct Flags {
 }
 
 impl Flags {
+    const Z: u8 = 0b0001;
+    const N: u8 = 0b0010;
+    const H: u8 = 0b0100;
+    const C: u8 = 0b1000;
+
     pub fn from_u8(data: u8) -> Flags {
         Flags { data }
     }
@@ -11,37 +16,40 @@ impl Flags {
         self.data
     }
 
-    fn get(&self, idx: usize) -> bool {
-        (self.data >> idx) & 0x1 == 0x1
-    }
 
     pub fn get_z(&self) -> bool {
-        self.get(0)
-    }
-    pub fn get_n(&self) -> bool {
-        self.get(1)
-    }
-    pub fn get_h(&self) -> bool {
-        self.get(2)
-    }
-    pub fn get_c(&self) -> bool {
-        self.get(3)
+        self.data & Self::Z != 0
     }
 
-    fn set(&mut self, idx: usize, v: bool) {
-        self.data = (self.data & !(0x1 >> idx)) | (((v as u8) & 0x1) << idx);
+    pub fn get_n(&self) -> bool {
+        self.data & Self::N != 0
+    }
+
+    pub fn get_h(&self) -> bool {
+        self.data & Self::H != 0
+    }
+
+    pub fn get_c(&self) -> bool {
+        self.data & Self::C != 0
+    }
+
+    fn set(&mut self, mask: u8, v: bool) {
+        let set = self.data | mask;
+        let unset = self.data & !mask;
+        // generate a cmove instruction to set data
+        self.data = if v { set } else { unset };
     }
 
     pub fn set_z(&mut self, v: bool) {
-        self.set(0, v)
+        self.set(Self::Z, v)
     }
     pub fn set_n(&mut self, v: bool) {
-        self.set(1, v)
+        self.set(Self::N, v)
     }
     pub fn set_h(&mut self, v: bool) {
-        self.set(2, v)
+        self.set(Self::H, v)
     }
     pub fn set_c(&mut self, v: bool) {
-        self.set(3, v)
+        self.set(Self::C, v)
     }
 }
